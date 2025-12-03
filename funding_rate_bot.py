@@ -226,20 +226,40 @@ class FundingRateBot:
         """Handle incoming Telegram commands"""
         message = update.get("message", {})
         text = message.get("text", "")
-        chat_id = message.get("chat", {}).get("id")
+        chat = message.get("chat", {})
+        chat_id = chat.get("id")
+        chat_type = chat.get("type", "private")
+        
+        # Handle DMs - ask user to join group
+        if chat_type == "private":
+            dm_response = """This is a <b>Mudrex</b> service.
+
+To receive funding rate alerts, please join our group.
+
+For support, contact @DecentralizedJM"""
+            await self.telegram.send_message(dm_response, chat_id=chat_id)
+            return
         
         if not text.startswith("/"):
             return
         parts = text.split()
         command = parts[0].lower().split('@')[0]  # Remove @botname if present
 
-        # Only support the /funding command. All other commands are ignored.
+        # /funding - send funding rates summary
         if command == "/funding":
-            # Send current funding rates summary
             rates = self.fetcher.get_tickers(self.symbols)
             await self.telegram.send_summary(rates)
-        else:
-            return
+        
+        # /status - show bot status
+        elif command == "/status":
+            status_msg = f"""<b>Funding Rate Bot Status</b>
+
+• Status: {'Running' if self.running else 'Stopped'}
+• Symbols Monitored: {len(self.symbols)}
+• Last Check: {self.last_check.strftime('%H:%M:%S UTC') if self.last_check else 'Starting...'}
+
+<i>A Mudrex service</i>"""
+            await self.telegram.send_message(status_msg)
     
     async def get_symbol_funding_rate(self, symbol: str):
         """Get and send funding rate for a specific symbol"""

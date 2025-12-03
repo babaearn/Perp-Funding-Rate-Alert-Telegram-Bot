@@ -1,91 +1,179 @@
-# Perpetual Funding Rate Alert Bot# Perpetual Funding Rate Alert Bot 📊
+# Perpetual Funding Rate Alert Bot# Perpetual Funding Rate Alert Bot# Perpetual Funding Rate Alert Bot 📊
 
 
 
-A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts.A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts when significant changes occur.
+A Telegram bot that monitors perpetual futures funding rates and sends settlement-based alerts.
 
 
 
-## FeaturesCurrently supports: **Bybit** (550+ USDT perpetuals)
+A **Mudrex** service.A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts.A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts when significant changes occur.
 
 
 
-- **Real-time Alerts** - Get notified when funding rates change## Features
+---
+
+
+
+## Features## FeaturesCurrently supports: **Bybit** (550+ USDT perpetuals)
+
+
+
+- Real-time funding rate alerts on settlement
+
+- Extreme rate alerts (>0.1%)
+
+- Bias flip detection (positive ↔ negative)- **Real-time Alerts** - Get notified when funding rates change## Features
+
+- Multi-interval support (1h, 2h, 4h, 8h)
 
 - **Extreme Rate Alerts** - Special alerts when rates exceed 0.1%
 
+## Alert Rules
+
 - **Flip Detection** - Alerts when funding rate changes sign (positive ↔ negative)- 🔔 **Real-time Alerts**: Get notified when funding rates change significantly
 
-- **On-demand Lookup** - Check any symbol's funding rate via command- ⚠️ **Extreme Rate Alerts**: Special alerts when rates exceed 0.1%
+- **BTCUSDT**: All rate changes, flips, and extreme rates
 
-- **Multi-Interval Support** - Handles 1h, 2h, 4h, and 8h funding intervals- 🔄 **Flip Detection**: Alerts when funding rate changes from positive to negative (or vice versa)
+- **Other symbols**: Extreme rates only (>0.1%)- **On-demand Lookup** - Check any symbol's funding rate via command- ⚠️ **Extreme Rate Alerts**: Special alerts when rates exceed 0.1%
 
-- 📱 **Topic Support**: Send alerts to a specific Telegram topic in supergroups
 
-## Alert Rules- 📊 **Rate Summary**: Command to view current funding rates on demand
 
-- 🛡️ **Rate Limiting**: Built-in protection against alert spam
+---- **Multi-Interval Support** - Handles 1h, 2h, 4h, and 8h funding intervals- 🔄 **Flip Detection**: Alerts when funding rate changes from positive to negative (or vice versa)
+
+
+
+## Quick Start- 📱 **Topic Support**: Send alerts to a specific Telegram topic in supergroups
+
+
+
+```bash## Alert Rules- 📊 **Rate Summary**: Command to view current funding rates on demand
+
+cd perp-funding-rate-bot
+
+pip install -r requirements.txt- 🛡️ **Rate Limiting**: Built-in protection against alert spam
+
+```
 
 - **BTCUSDT**: All rate changes, flips, and extreme rates- ⏰ **Multi-Interval Support**: Handles 1h, 2h, 4h, and 8h funding intervals
 
-- **Other symbols**: Only extreme rates (>0.1%)
+Create `.env` file:
 
-## How Funding Rates Work
+```- **Other symbols**: Only extreme rates (>0.1%)
+
+TELEGRAM_BOT_TOKEN=your_bot_token
+
+TELEGRAM_CHAT_ID=your_chat_id## How Funding Rates Work
+
+```
 
 ## Quick Start
 
-Funding rates are periodic payments between long and short traders on perpetual futures:
+Run:
 
-### 1. Setup- **Positive rate** → Longs pay shorts (bullish sentiment)
+```bashFunding rates are periodic payments between long and short traders on perpetual futures:
 
-- **Negative rate** → Shorts pay longs (bearish sentiment)
+python3 funding_rate_bot.py
 
-```bash
+```### 1. Setup- **Positive rate** → Longs pay shorts (bullish sentiment)
 
-cd perp-funding-rate-botFunding settlements occur at various intervals (1h, 2h, 4h, 8h depending on the symbol).
 
-pip install -r requirements.txt
+
+---- **Negative rate** → Shorts pay longs (bearish sentiment)
+
+
+
+## Commands```bash
+
+
+
+| Command | Description |cd perp-funding-rate-botFunding settlements occur at various intervals (1h, 2h, 4h, 8h depending on the symbol).
+
+|---------|-------------|
+
+| `/funding` | Show current funding rates summary |pip install -r requirements.txt
+
+| `/status` | Show bot status |
 
 ```## Quick Start
 
+---
 
+
+
+## Alert Format
 
 %0A# Perpetual Funding Rate Alert Bot%0A%0AA clean, focused Telegram bot to monitor perpetual futures funding rates and send settlement-based alerts.%0A%0A## Key points%0A%0A- Monitors USDT perpetuals (currently configured for Bybit).%0A- Settlement-based alerts (no spam from predicted rates).%0A- Alert rules: `BTCUSDT` receives all alerts; other symbols receive extreme-rate alerts only (>|0.1%|).%0A- Supports funding intervals: 1h, 2h, 4h, 8h.%0A%0A## Quick start%0A%0A1) Install dependencies%0A
 
-
-
-Create `.env` file:```bash
-
-```cd perp-funding-rate-bot
-
-TELEGRAM_BOT_TOKEN=your_bot_tokenpython3 -m venv venv
-
-TELEGRAM_CHAT_ID=your_chat_idsource venv/bin/activate  # On Windows: venv\Scripts\activate
-
-```pip install -r requirements.txt
-
 ```
 
-### 3. Run
+🟢 BTCUSDT
 
-### 2. Configure Environment
 
-```bash
 
-python3 funding_rate_bot.py```bash
+• Bias: Positive (Longs Pay Shorts)Create `.env` file:```bash
+
+• Rate: +0.0100% → +0.0250%
+
+• Interval: 8h```cd perp-funding-rate-bot
+
+• Settled: 04 Dec 2025, 01:30 PM IST
+
+```TELEGRAM_BOT_TOKEN=your_bot_tokenpython3 -m venv venv
+
+
+
+---TELEGRAM_CHAT_ID=your_chat_idsource venv/bin/activate  # On Windows: venv\Scripts\activate
+
+
+
+## Project Structure```pip install -r requirements.txt
+
+
+
+``````
+
+perp-funding-rate-bot/
+
+├── funding_rate_bot.py### 3. Run
+
+├── config.py
+
+├── bybit_fetcher.py### 2. Configure Environment
+
+├── funding_monitor.py
+
+├── telegram_client.py```bash
+
+├── requirements.txt
+
+└── .env (not tracked)python3 funding_rate_bot.py```bash
+
+```
 
 ```cp .env.example .env
 
+---
+
 ```
 
+## Support
 
-Edit `.env` with your credentials:
 
-| Command | Description |- `TELEGRAM_BOT_TOKEN`: Get from [@BotFather](https://t.me/BotFather)
 
-|---------|-------------|- `TELEGRAM_CHAT_ID`: Your group/chat ID
+Contact: @DecentralizedJMEdit `.env` with your credentials:
 
-| `/fundingrate <symbol>` | Get funding rate for a symbol |- `TELEGRAM_TOPIC_ID`: (Optional) Specific topic ID
+
+
+---| Command | Description |- `TELEGRAM_BOT_TOKEN`: Get from [@BotFather](https://t.me/BotFather)
+
+
+
+## License|---------|-------------|- `TELEGRAM_CHAT_ID`: Your group/chat ID
+
+
+
+MIT License| `/fundingrate <symbol>` | Get funding rate for a symbol |- `TELEGRAM_TOPIC_ID`: (Optional) Specific topic ID
+
 
 | `/rates` | Show funding rates summary |
 

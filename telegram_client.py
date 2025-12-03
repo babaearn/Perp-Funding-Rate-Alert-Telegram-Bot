@@ -29,20 +29,21 @@ class TelegramClient:
         if self.topic_id:
             logger.info(f"✅ Telegram topic configured: Topic ID {self.topic_id}")
     
-    async def send_message(self, text: str, topic_id: Optional[int] = None) -> bool:
+    async def send_message(self, text: str, topic_id: Optional[int] = None, chat_id: Optional[int] = None) -> bool:
         """
         Send a message to Telegram chat/topic
         
         Args:
             text: Message text (supports HTML formatting)
             topic_id: Optional topic ID (overrides self.topic_id if provided)
+            chat_id: Optional chat ID (overrides self.chat_id if provided, for DM replies)
         
         Returns:
             True if sent successfully, False otherwise
         """
         try:
             payload = {
-                "chat_id": self.chat_id,
+                "chat_id": chat_id or self.chat_id,
                 "text": text,
                 "parse_mode": "HTML"
             }
