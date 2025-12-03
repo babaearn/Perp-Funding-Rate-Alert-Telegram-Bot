@@ -52,7 +52,7 @@ class FundingRateBot:
     
     def __init__(self):
         """Initialize bot components"""
-        logger.info("Initializing Bybit Funding Rate Bot...")
+        logger.info("Initializing Funding Rate Bot...")
         
         # Load credentials
         self.telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -106,7 +106,7 @@ class FundingRateBot:
     
     async def run(self):
         """Main bot loop"""
-        logger.info("Starting Bybit Funding Rate Bot...")
+        logger.info("Starting Funding Rate Bot...")
         
         # Send startup message with interval info
         await self.telegram.send_startup_message(self.symbols, self.interval_counts)
@@ -231,21 +231,34 @@ class FundingRateBot:
         if not text.startswith("/"):
             return
         
-        command = text.split()[0].lower()
+        parts = text.split()
+        command = parts[0].lower().split('@')[0]  # Remove @botname if present
         
         if command == "/rates" or command == "/funding":
             # Send current funding rates summary
             rates = self.fetcher.get_tickers(self.symbols)
             await self.telegram.send_summary(rates)
         
+        elif command == "/fundingrate":
+            # Get funding rate for a specific symbol
+            if len(parts) < 2:
+                await self.telegram.send_message("Usage: /fundingrate <symbol>\nExample: /fundingrate BTCUSDT")
+                return
+            
+            symbol = parts[1].upper()
+            if not symbol.endswith("USDT"):
+                symbol = symbol + "USDT"
+            
+            await self.get_symbol_funding_rate(symbol)
+        
         elif command == "/status":
             status_msg = f"""
-🤖 <b>Bot Status</b>
+<b>Bot Status</b>
 
-<b>Status:</b> {'Running ✅' if self.running else 'Stopped ❌'}
-<b>Symbols:</b> {len(self.symbols)}
-<b>Last Check:</b> {self.last_check.strftime('%H:%M:%S UTC') if self.last_check else 'Never'}
-<b>Check Interval:</b> {self.config.CHECK_INTERVAL}s
+• Status: {'Running' if self.running else 'Stopped'}
+• Symbols: {len(self.symbols)}
+• Last Check: {self.last_check.strftime('%H:%M:%S UTC') if self.last_check else 'Never'}
+• Check Interval: {self.config.CHECK_INTERVAL}s
 
 <b>Thresholds:</b>
 • Min Change: {self.config.MIN_RATE_CHANGE_THRESHOLD * 100:.2f}%
@@ -255,31 +268,85 @@ class FundingRateBot:
         
         elif command == "/help":
             help_msg = """
-🤖 <b>Bybit Funding Rate Bot</b>
+<b>Funding Rate Bot</b>
 
 <b>Commands:</b>
-/rates - Show current funding rates
-/funding - Same as /rates
+/fundingrate <symbol> - Get latest funding rate
+/rates - Show funding rates summary
 /status - Show bot status
 /help - Show this message
 
 <b>Alerts:</b>
-The bot monitors funding rates and alerts when:
-• Rate changes significantly
-• Rate becomes extreme (>0.1%)
-• Rate flips positive ↔ negative
-
-<i>Funding rates update at 1h/2h/4h/8h intervals</i>
+• BTCUSDT: All rate changes
+• Other symbols: Extreme rates only (>0.1%)
 """
             await self.telegram.send_message(help_msg.strip())
+    
+    async def get_symbol_funding_rate(self, symbol: str):
+        """Get and send funding rate for a specific symbol"""
+        try:
+            # Fetch latest settlement for this symbol
+            settlements = self.fetcher.get_latest_settlements_batch([symbol])
+            ticker_data = self.fetcher.get_tickers([symbol])
+            
+            if not settlements or symbol not in settlements:
+                await self.telegram.send_message(f"Symbol {symbol} not found or no data available.")
+                return
+            
+            settlement = settlements[symbol]
+            ticker = ticker_data.get(symbol, {})
+            
+            rate = settlement.get("fundingRate", 0)
+            rate_pct = rate * 100
+            timestamp = settlement.get("fundingRateTimestamp", 0)
+            
+            # Format rate with sign
+            rate_str = f"+{rate_pct:.4f}%" if rate >= 0 else f"{rate_pct:.4f}%"
+            
+            # Color based on rate
+            color = "🟢" if rate >= 0 else "🔴"
+            
+            # Bias text
+            if rate >= 0:
+                bias = "Positive (Longs Pay Shorts)"
+            else:
+                bias = "Negative (Shorts Pay Longs)"
+            
+            # Format settlement time in IST
+            from datetime import timedelta
+            if timestamp:
+                from datetime import datetime, timezone
+                dt = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+                ist_offset = timedelta(hours=5, minutes=30)
+                dt_ist = dt + ist_offset
+                settlement_time = dt_ist.strftime('%d %b %Y, %I:%M %p IST')
+            else:
+                settlement_time = "Unknown"
+            
+            # Get interval
+            interval = ticker.get("fundingIntervalHours", 8)
+            if symbol in self.symbols_data:
+                interval = self.symbols_data[symbol].get("fundingIntervalHours", interval)
+            
+            message = f"""{color} <b>{symbol}</b>
+
+• Bias: {bias}
+• Rate: <b>{rate_str}</b>
+• Interval: {interval}h
+• Last Settled: {settlement_time}"""
+            
+            await self.telegram.send_message(message.strip())
+            
+        except Exception as e:
+            logger.error(f"Error getting funding rate for {symbol}: {e}")
+            await self.telegram.send_message(f"Error fetching data for {symbol}")
 
 
 async def main():
     """Main entry point"""
     print("""
 ╔═══════════════════════════════════════════════════╗
-║     Perpetual Funding Rate Alert Bot              ║
-║     Monitors perpetual funding rates              ║
+║        Perpetual Funding Rate Alert Bot           ║
 ╚═══════════════════════════════════════════════════╝
     """)
     

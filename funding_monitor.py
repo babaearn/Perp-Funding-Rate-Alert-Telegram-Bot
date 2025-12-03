@@ -79,6 +79,20 @@ class FundingRateMonitor:
         except Exception:
             return "Unknown"
     
+    def _format_settlement_time_ist(self, timestamp_ms: int) -> str:
+        """Format settlement time in IST (UTC+5:30)"""
+        if not timestamp_ms:
+            return "Unknown"
+        try:
+            from datetime import timedelta
+            dt = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
+            # Convert to IST (UTC+5:30)
+            ist_offset = timedelta(hours=5, minutes=30)
+            dt_ist = dt + ist_offset
+            return dt_ist.strftime('%d %b %Y, %I:%M %p IST')
+        except Exception:
+            return "Unknown"
+    
     def check_settlements(self, settlements: Dict[str, Dict], ticker_data: Dict[str, Dict]) -> List[Dict]:
         """
         Check for new funding settlements and generate alerts
@@ -144,33 +158,46 @@ class FundingRateMonitor:
         """
         Create an alert for a funding settlement
         
+        Alert Rules:
+        - BTCUSDT (and symbols in FULL_ALERT_SYMBOLS): Get ALL alerts
+        - Other symbols: Only EXTREME rate alerts (>0.1%)
+        
         Returns:
             Alert dict if alert should be sent, None otherwise
         """
         rate_change = current_rate - prev_rate
         abs_change = abs(rate_change)
         
+        # Check if this symbol gets full alerts or only extreme alerts
+        full_alert_symbols = getattr(self.config, 'FULL_ALERT_SYMBOLS', ['BTCUSDT'])
+        is_full_alert_symbol = symbol in full_alert_symbols
+        
         # Determine alert type
         alert_type = None
         
-        # Check for sign change (flip)
-        if self.config.ALERT_ON_SIGN_CHANGE:
-            if prev_rate > 0 and current_rate < 0:
-                alert_type = "sign_change"
-                logger.info(f"{symbol}: Rate flipped from positive to negative at settlement")
-            elif prev_rate < 0 and current_rate > 0:
-                alert_type = "sign_change"
-                logger.info(f"{symbol}: Rate flipped from negative to positive at settlement")
-        
-        # Check for extreme rate
+        # Check for extreme rate (always alert for ALL symbols)
         if abs(current_rate) >= self.config.EXTREME_RATE_THRESHOLD:
-            if alert_type != "sign_change":
-                alert_type = "extreme"
-                logger.info(f"{symbol}: Extreme funding rate at settlement: {current_rate:.6f}")
+            alert_type = "extreme"
+            logger.info(f"{symbol}: Extreme funding rate at settlement: {current_rate:.6f}")
         
-        # Check for significant change (or any change if threshold is 0)
-        if abs_change >= self.config.MIN_RATE_CHANGE_THRESHOLD:
-            if alert_type is None:
+        # For non-full-alert symbols, only send extreme alerts
+        if not is_full_alert_symbol:
+            if alert_type != "extreme":
+                return None
+        
+        # For full-alert symbols, also check for sign change and regular changes
+        if is_full_alert_symbol and alert_type is None:
+            # Check for sign change (flip)
+            if self.config.ALERT_ON_SIGN_CHANGE:
+                if prev_rate > 0 and current_rate < 0:
+                    alert_type = "sign_change"
+                    logger.info(f"{symbol}: Rate flipped from positive to negative at settlement")
+                elif prev_rate < 0 and current_rate > 0:
+                    alert_type = "sign_change"
+                    logger.info(f"{symbol}: Rate flipped from negative to positive at settlement")
+            
+            # Check for significant change
+            if alert_type is None and abs_change >= self.config.MIN_RATE_CHANGE_THRESHOLD:
                 alert_type = "settlement"
                 logger.debug(f"{symbol}: Rate changed by {rate_change:.6f} at settlement")
         
@@ -179,6 +206,7 @@ class FundingRateMonitor:
         
         # Get funding interval from ticker if available
         funding_interval = ticker_data.get("fundingIntervalHours", 8)
+        prev_interval = ticker_data.get("prevFundingIntervalHours", funding_interval)
         
         return {
             "symbol": symbol,
@@ -187,8 +215,9 @@ class FundingRateMonitor:
             "rateChange": rate_change,
             "alertType": alert_type,
             "lastPrice": ticker_data.get("lastPrice", 0),
-            "settlementTime": self._format_settlement_time(settlement_timestamp),
+            "settlementTime": self._format_settlement_time_ist(settlement_timestamp),
             "fundingInterval": f"{funding_interval}h",
+            "prevFundingInterval": f"{prev_interval}h",
             "volume24h": ticker_data.get("volume24h", 0),
             "timestamp": datetime.now(timezone.utc).isoformat()
         }

@@ -95,63 +95,66 @@ class TelegramClient:
         symbol = alert.get("symbol", "UNKNOWN")
         rate = alert.get("fundingRate", 0)
         prev_rate = alert.get("prevFundingRate", 0)
-        rate_change = alert.get("rateChange", 0)
         alert_type = alert.get("alertType", "change")
-        price = alert.get("lastPrice", 0)
-        next_funding = alert.get("nextFundingTime", "")
+        funding_interval = alert.get("fundingInterval", "8h")
+        prev_interval = alert.get("prevFundingInterval", funding_interval)
+        settlement_time = alert.get("settlementTime", "")
         
-        # Determine emoji based on rate
-        if rate > 0:
-            rate_emoji = "🔴"  # Longs pay shorts
-            bias = "LONG PAYING"
-        elif rate < 0:
-            rate_emoji = "🟢"  # Shorts pay longs
-            bias = "SHORT PAYING"
-        else:
-            rate_emoji = "⚪"
-            bias = "NEUTRAL"
-        
-        # Alert type specific formatting
-        if alert_type == "extreme":
-            header = f"⚠️ <b>EXTREME FUNDING RATE</b> ⚠️"
-        elif alert_type == "sign_change":
-            header = f"🔄 <b>FUNDING RATE FLIP</b> 🔄"
-        else:
-            header = f"📊 <b>FUNDING RATE CHANGE</b>"
-        
-        # Format rates as percentages
+        # Format rates as percentages with + for positive
         rate_pct = rate * 100
         prev_rate_pct = prev_rate * 100
-        change_pct = rate_change * 100
         
-        # Change direction emoji
-        if rate_change > 0:
-            change_emoji = "📈"
-        elif rate_change < 0:
-            change_emoji = "📉"
+        def format_rate(r):
+            return f"+{r:.4f}%" if r >= 0 else f"{r:.4f}%"
+        
+        # Determine color based on current rate
+        if rate >= 0:
+            color_emoji = "🟢"
         else:
-            change_emoji = "➡️"
+            color_emoji = "🔴"
         
-        # Get settlement time or next funding time
-        settlement_time = alert.get("settlementTime", "")
-        funding_interval = alert.get("fundingInterval", "8h")
+        # Determine bias text based on sign change
+        prev_positive = prev_rate >= 0
+        curr_positive = rate >= 0
+        is_flip = False
         
-        message = f"""
-{header}
+        if prev_positive and not curr_positive:
+            bias_text = "Flipped from Positive to Negative"
+            color_emoji = "🔴"
+            is_flip = True
+        elif not prev_positive and curr_positive:
+            bias_text = "Flipped from Negative to Positive"
+            color_emoji = "🟢"
+            is_flip = True
+        elif curr_positive:
+            bias_text = "Positive (Longs Pay Shorts)"
+        else:
+            bias_text = "Negative (Shorts Pay Longs)"
+        
+        # Check for interval change
+        interval_text = f"{funding_interval}"
+        is_interval_change = prev_interval and prev_interval != funding_interval
+        if is_interval_change:
+            interval_text = f"{prev_interval} → {funding_interval}"
+        
+        # Build header based on alert type
+        if alert_type == "extreme":
+            header = f"⚠️ <b>EXTREME RATE</b>\n\n{color_emoji} <b>{symbol}</b>"
+        elif is_flip:
+            header = f"🔄 <b>BIAS FLIPPED</b>\n\n{color_emoji} <b>{symbol}</b>"
+        elif is_interval_change:
+            header = f"⏰ <b>INTERVAL CHANGED</b>\n\n{color_emoji} <b>{symbol}</b>"
+        else:
+            header = f"{color_emoji} <b>{symbol}</b>"
+        
+        # Clean format with only green/red dots and bullets
+        message = f"""{header}
 
-{rate_emoji} <b>{symbol}</b> ({funding_interval})
-
-<b>Settled Rate:</b> {rate_pct:+.4f}%
-<b>Previous Rate:</b> {prev_rate_pct:+.4f}%
-<b>Change:</b> {change_emoji} {change_pct:+.4f}%
-
-<b>Bias:</b> {bias}
-<b>Price:</b> ${price:,.2f}
-
-<b>Settlement:</b> {settlement_time}
-
-<i>Perpetual Futures</i>
-"""
+• Bias: {bias_text}
+• Rate: <b>{format_rate(prev_rate_pct)}</b> → <b>{format_rate(rate_pct)}</b>
+• Interval: {interval_text}
+• Settled: {settlement_time}"""
+        
         return message.strip()
     
     async def send_startup_message(self, symbols: list, intervals: dict = None) -> bool:

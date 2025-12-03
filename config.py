@@ -65,6 +65,13 @@ class FundingRateConfig:
     ALERT_ON_SIGN_CHANGE = True
     
     # ==========================================================================
+    # ALERT RULES
+    # ==========================================================================
+    # BTCUSDT gets ALL alerts (any change, flip, extreme)
+    # Other symbols only get alerts for EXTREME rates (>0.1%)
+    FULL_ALERT_SYMBOLS: List[str] = field(default_factory=lambda: ["BTCUSDT"])
+    
+    # ==========================================================================
     # DATA STORAGE
     # ==========================================================================
     DATA_DIR = "data"
