@@ -230,57 +230,16 @@ class FundingRateBot:
         
         if not text.startswith("/"):
             return
-        
         parts = text.split()
         command = parts[0].lower().split('@')[0]  # Remove @botname if present
-        
-        if command == "/rates" or command == "/funding":
+
+        # Only support the /funding command. All other commands are ignored.
+        if command == "/funding":
             # Send current funding rates summary
             rates = self.fetcher.get_tickers(self.symbols)
             await self.telegram.send_summary(rates)
-        
-        elif command == "/fundingrate":
-            # Get funding rate for a specific symbol
-            if len(parts) < 2:
-                await self.telegram.send_message("Usage: /fundingrate <symbol>\nExample: /fundingrate BTCUSDT")
-                return
-            
-            symbol = parts[1].upper()
-            if not symbol.endswith("USDT"):
-                symbol = symbol + "USDT"
-            
-            await self.get_symbol_funding_rate(symbol)
-        
-        elif command == "/status":
-            status_msg = f"""
-<b>Bot Status</b>
-
-• Status: {'Running' if self.running else 'Stopped'}
-• Symbols: {len(self.symbols)}
-• Last Check: {self.last_check.strftime('%H:%M:%S UTC') if self.last_check else 'Never'}
-• Check Interval: {self.config.CHECK_INTERVAL}s
-
-<b>Thresholds:</b>
-• Min Change: {self.config.MIN_RATE_CHANGE_THRESHOLD * 100:.2f}%
-• Extreme Rate: {self.config.EXTREME_RATE_THRESHOLD * 100:.2f}%
-"""
-            await self.telegram.send_message(status_msg.strip())
-        
-        elif command == "/help":
-            help_msg = """
-<b>Funding Rate Bot</b>
-
-<b>Commands:</b>
-/fundingrate <symbol> - Get latest funding rate
-/rates - Show funding rates summary
-/status - Show bot status
-/help - Show this message
-
-<b>Alerts:</b>
-• BTCUSDT: All rate changes
-• Other symbols: Extreme rates only (>0.1%)
-"""
-            await self.telegram.send_message(help_msg.strip())
+        else:
+            return
     
     async def get_symbol_funding_rate(self, symbol: str):
         """Get and send funding rate for a specific symbol"""

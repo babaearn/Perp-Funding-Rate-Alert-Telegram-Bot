@@ -50,7 +50,7 @@ pip install -r requirements.txt
 
 
 
-### 2. Configure### 1. Clone and Setup
+%0A# Perpetual Funding Rate Alert Bot%0A%0AA clean, focused Telegram bot to monitor perpetual futures funding rates and send settlement-based alerts.%0A%0A## Key points%0A%0A- Monitors USDT perpetuals (currently configured for Bybit).%0A- Settlement-based alerts (no spam from predicted rates).%0A- Alert rules: `BTCUSDT` receives all alerts; other symbols receive extreme-rate alerts only (>|0.1%|).%0A- Supports funding intervals: 1h, 2h, 4h, 8h.%0A%0A## Quick start%0A%0A1) Install dependencies%0A
 
 
 
@@ -78,7 +78,6 @@ python3 funding_rate_bot.py```bash
 
 ```
 
-## Commands
 
 Edit `.env` with your credentials:
 
@@ -140,9 +139,6 @@ Edit `.env` with your credentials:
 
 • Settled: 04 Dec 2025, 01:30 PM IST    "SOLUSDT",
 
-```    # Add more symbols...
-
-]
 
 ### Extreme Rate
 
