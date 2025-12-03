@@ -1,104 +1,205 @@
-# Perpetual Funding Rate Alert Bot 📊
+# Perpetual Funding Rate Alert Bot# Perpetual Funding Rate Alert Bot 📊
 
-A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts when significant changes occur.
 
-Currently supports: **Bybit** (550+ USDT perpetuals)
 
-## Features
+A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts.A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts when significant changes occur.
 
-- 🔔 **Real-time Alerts**: Get notified when funding rates change significantly
-- ⚠️ **Extreme Rate Alerts**: Special alerts when rates exceed 0.1%
-- 🔄 **Flip Detection**: Alerts when funding rate changes from positive to negative (or vice versa)
+
+
+## FeaturesCurrently supports: **Bybit** (550+ USDT perpetuals)
+
+
+
+- **Real-time Alerts** - Get notified when funding rates change## Features
+
+- **Extreme Rate Alerts** - Special alerts when rates exceed 0.1%
+
+- **Flip Detection** - Alerts when funding rate changes sign (positive ↔ negative)- 🔔 **Real-time Alerts**: Get notified when funding rates change significantly
+
+- **On-demand Lookup** - Check any symbol's funding rate via command- ⚠️ **Extreme Rate Alerts**: Special alerts when rates exceed 0.1%
+
+- **Multi-Interval Support** - Handles 1h, 2h, 4h, and 8h funding intervals- 🔄 **Flip Detection**: Alerts when funding rate changes from positive to negative (or vice versa)
+
 - 📱 **Topic Support**: Send alerts to a specific Telegram topic in supergroups
-- 📊 **Rate Summary**: Command to view current funding rates on demand
+
+## Alert Rules- 📊 **Rate Summary**: Command to view current funding rates on demand
+
 - 🛡️ **Rate Limiting**: Built-in protection against alert spam
-- ⏰ **Multi-Interval Support**: Handles 1h, 2h, 4h, and 8h funding intervals
+
+- **BTCUSDT**: All rate changes, flips, and extreme rates- ⏰ **Multi-Interval Support**: Handles 1h, 2h, 4h, and 8h funding intervals
+
+- **Other symbols**: Only extreme rates (>0.1%)
 
 ## How Funding Rates Work
 
-Funding rates are periodic payments between long and short traders on perpetual futures:
-- **Positive rate** → Longs pay shorts (bullish sentiment)
-- **Negative rate** → Shorts pay longs (bearish sentiment)
-
-Funding settlements occur at various intervals (1h, 2h, 4h, 8h depending on the symbol).
-
 ## Quick Start
 
-### 1. Clone and Setup
+Funding rates are periodic payments between long and short traders on perpetual futures:
+
+### 1. Setup- **Positive rate** → Longs pay shorts (bullish sentiment)
+
+- **Negative rate** → Shorts pay longs (bearish sentiment)
 
 ```bash
-cd perp-funding-rate-bot
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+cd perp-funding-rate-botFunding settlements occur at various intervals (1h, 2h, 4h, 8h depending on the symbol).
+
 pip install -r requirements.txt
+
+```## Quick Start
+
+
+
+### 2. Configure### 1. Clone and Setup
+
+
+
+Create `.env` file:```bash
+
+```cd perp-funding-rate-bot
+
+TELEGRAM_BOT_TOKEN=your_bot_tokenpython3 -m venv venv
+
+TELEGRAM_CHAT_ID=your_chat_idsource venv/bin/activate  # On Windows: venv\Scripts\activate
+
+```pip install -r requirements.txt
+
 ```
+
+### 3. Run
 
 ### 2. Configure Environment
 
 ```bash
-cp .env.example .env
+
+python3 funding_rate_bot.py```bash
+
+```cp .env.example .env
+
 ```
+
+## Commands
 
 Edit `.env` with your credentials:
-- `TELEGRAM_BOT_TOKEN`: Get from [@BotFather](https://t.me/BotFather)
-- `TELEGRAM_CHAT_ID`: Your group/chat ID
-- `TELEGRAM_TOPIC_ID`: (Optional) Specific topic ID
 
-### 3. Run the Bot
+| Command | Description |- `TELEGRAM_BOT_TOKEN`: Get from [@BotFather](https://t.me/BotFather)
 
-```bash
-python funding_rate_bot.py
-```
+|---------|-------------|- `TELEGRAM_CHAT_ID`: Your group/chat ID
 
-## Telegram Commands
+| `/fundingrate <symbol>` | Get funding rate for a symbol |- `TELEGRAM_TOPIC_ID`: (Optional) Specific topic ID
 
-| Command | Description |
-|---------|-------------|
-| `/rates` | Show current funding rates for monitored symbols |
-| `/funding` | Same as `/rates` |
-| `/status` | Show bot status and configuration |
+| `/rates` | Show funding rates summary |
+
+| `/status` | Show bot status |### 3. Run the Bot
+
 | `/help` | Show help message |
 
-## Configuration
+```bash
 
-Edit `config.py` to customize:
+## Alert Formatpython funding_rate_bot.py
 
-```python
-# Symbols to monitor
-SYMBOLS = [
-    "BTCUSDT",
-    "ETHUSDT",
-    "SOLUSDT",
-    # Add more symbols...
-]
-
-# Check interval (seconds)
-CHECK_INTERVAL = 1800  # 30 minutes
-
-# Minimum rate change to trigger alert (0.0001 = 0.01%)
-MIN_RATE_CHANGE_THRESHOLD = 0.0001
-
-# Extreme rate threshold (0.001 = 0.1%)
-EXTREME_RATE_THRESHOLD = 0.001
-
-# Alert on sign change (positive ↔ negative)
-ALERT_ON_SIGN_CHANGE = True
 ```
 
+### Regular Alert
 
-## Alert Examples
+```## Telegram Commands
 
-### Positive Funding Rate (Longs Pay)
-```
 🟢 BTCUSDT
 
-📈 Bias: Positive (Longs Pay Shorts)
-📊 Rate: +0.0100% → +0.0250%
-⏰ Interval: 8h
-🕐 Settled: 03 Dec 2025, 01:30 PM IST
+| Command | Description |
+
+• Bias: Positive (Longs Pay Shorts)|---------|-------------|
+
+• Rate: +0.0100% → +0.0250%| `/rates` | Show current funding rates for monitored symbols |
+
+• Interval: 8h| `/funding` | Same as `/rates` |
+
+• Settled: 04 Dec 2025, 01:30 PM IST| `/status` | Show bot status and configuration |
+
+```| `/help` | Show help message |
+
+
+
+### Bias Flipped## Configuration
+
 ```
 
-### Negative Funding Rate (Shorts Pay)
+🔄 BIAS FLIPPEDEdit `config.py` to customize:
+
+
+
+🔴 ETHUSDT```python
+
+# Symbols to monitor
+
+• Bias: Flipped from Positive to NegativeSYMBOLS = [
+
+• Rate: +0.0050% → -0.0120%    "BTCUSDT",
+
+• Interval: 8h    "ETHUSDT",
+
+• Settled: 04 Dec 2025, 01:30 PM IST    "SOLUSDT",
+
+```    # Add more symbols...
+
+]
+
+### Extreme Rate
+
+```# Check interval (seconds)
+
+⚠️ EXTREME RATECHECK_INTERVAL = 1800  # 30 minutes
+
+
+
+🔴 DOGEUSDT# Minimum rate change to trigger alert (0.0001 = 0.01%)
+
+MIN_RATE_CHANGE_THRESHOLD = 0.0001
+
+• Bias: Negative (Shorts Pay Longs)
+
+• Rate: -0.0800% → -0.1500%# Extreme rate threshold (0.001 = 0.1%)
+
+• Interval: 8hEXTREME_RATE_THRESHOLD = 0.001
+
+• Settled: 04 Dec 2025, 01:30 AM IST
+
+```# Alert on sign change (positive ↔ negative)
+
+ALERT_ON_SIGN_CHANGE = True
+
+## Project Structure```
+
+
+
+```
+
+perp-funding-rate-bot/## Alert Examples
+
+├── funding_rate_bot.py   # Main bot
+
+├── config.py             # Configuration### Positive Funding Rate (Longs Pay)
+
+├── bybit_fetcher.py      # API client```
+
+├── funding_monitor.py    # Rate detection🟢 BTCUSDT
+
+├── telegram_client.py    # Telegram messaging
+
+├── requirements.txt      # Dependencies📈 Bias: Positive (Longs Pay Shorts)
+
+└── .env                  # Credentials (not tracked)📊 Rate: +0.0100% → +0.0250%
+
+```⏰ Interval: 8h
+
+🕐 Settled: 03 Dec 2025, 01:30 PM IST
+
+## License```
+
+
+
+MIT License### Negative Funding Rate (Shorts Pay)
+
 ```
 🔴 ETHUSDT
 
