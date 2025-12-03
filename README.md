@@ -1,12 +1,12 @@
-# Perpetual Funding Rate Alert Bot# Perpetual Funding Rate Alert Bot# Perpetual Funding Rate Alert Bot 📊
+# Perpetual Funding Rate Alert Bot# Perpetual Funding Rate Alert Bot# Perpetual Funding Rate Alert Bot# Perpetual Funding Rate Alert Bot 📊
 
 
 
-A Telegram bot that monitors perpetual futures funding rates and sends settlement-based alerts.
+Real-time funding rate alerts for perpetual futures.
 
 
 
-A **Mudrex** service.A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts.A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts when significant changes occur.
+A **Mudrex** service.A Telegram bot that monitors perpetual futures funding rates and sends settlement-based alerts.
 
 
 
@@ -14,107 +14,225 @@ A **Mudrex** service.A Telegram bot that monitors perpetual futures funding rate
 
 
 
-## Features## FeaturesCurrently supports: **Bybit** (550+ USDT perpetuals)
+## FeaturesA **Mudrex** service.A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts.A Telegram bot that monitors perpetual futures funding rates and sends real-time alerts when significant changes occur.
 
 
 
-- Real-time funding rate alerts on settlement
+- **Settlement-based alerts** — No spam from predicted rates
+
+- **Extreme rate detection** — Alerts when rates exceed ±0.1%
+
+- **Bias flip detection** — Alerts when funding flips positive ↔ negative---
+
+- **Multi-interval support** — Handles 1h, 2h, 4h, 8h funding intervals
+
+- **Auto-refresh** — Symbol list updates every 24 hours for new listings
+
+
+
+## Alert Rules## Features## FeaturesCurrently supports: **Bybit** (550+ USDT perpetuals)
+
+
+
+| Symbol | Alert Trigger |
+
+|--------|---------------|
+
+| BTCUSDT | All rate changes, flips, extreme rates |- Real-time funding rate alerts on settlement
+
+| Others | Extreme rates only (>0.1%) |
 
 - Extreme rate alerts (>0.1%)
 
+---
+
 - Bias flip detection (positive ↔ negative)- **Real-time Alerts** - Get notified when funding rates change## Features
+
+## Setup
 
 - Multi-interval support (1h, 2h, 4h, 8h)
 
-- **Extreme Rate Alerts** - Special alerts when rates exceed 0.1%
+```bash
 
-## Alert Rules
+cd perp-funding-rate-bot- **Extreme Rate Alerts** - Special alerts when rates exceed 0.1%
 
-- **Flip Detection** - Alerts when funding rate changes sign (positive ↔ negative)- 🔔 **Real-time Alerts**: Get notified when funding rates change significantly
+pip install -r requirements.txt
 
-- **BTCUSDT**: All rate changes, flips, and extreme rates
-
-- **Other symbols**: Extreme rates only (>0.1%)- **On-demand Lookup** - Check any symbol's funding rate via command- ⚠️ **Extreme Rate Alerts**: Special alerts when rates exceed 0.1%
+```## Alert Rules
 
 
 
----- **Multi-Interval Support** - Handles 1h, 2h, 4h, and 8h funding intervals- 🔄 **Flip Detection**: Alerts when funding rate changes from positive to negative (or vice versa)
+Create `.env`:- **Flip Detection** - Alerts when funding rate changes sign (positive ↔ negative)- 🔔 **Real-time Alerts**: Get notified when funding rates change significantly
 
 
 
-## Quick Start- 📱 **Topic Support**: Send alerts to a specific Telegram topic in supergroups
+```- **BTCUSDT**: All rate changes, flips, and extreme rates
 
+TELEGRAM_BOT_TOKEN=your_token
 
-
-```bash## Alert Rules- 📊 **Rate Summary**: Command to view current funding rates on demand
-
-cd perp-funding-rate-bot
-
-pip install -r requirements.txt- 🛡️ **Rate Limiting**: Built-in protection against alert spam
+TELEGRAM_CHAT_ID=your_chat_id- **Other symbols**: Extreme rates only (>0.1%)- **On-demand Lookup** - Check any symbol's funding rate via command- ⚠️ **Extreme Rate Alerts**: Special alerts when rates exceed 0.1%
 
 ```
 
-- **BTCUSDT**: All rate changes, flips, and extreme rates- ⏰ **Multi-Interval Support**: Handles 1h, 2h, 4h, and 8h funding intervals
 
-Create `.env` file:
-
-```- **Other symbols**: Only extreme rates (>0.1%)
-
-TELEGRAM_BOT_TOKEN=your_bot_token
-
-TELEGRAM_CHAT_ID=your_chat_id## How Funding Rates Work
-
-```
-
-## Quick Start
 
 Run:
 
-```bashFunding rates are periodic payments between long and short traders on perpetual futures:
+---- **Multi-Interval Support** - Handles 1h, 2h, 4h, and 8h funding intervals- 🔄 **Flip Detection**: Alerts when funding rate changes from positive to negative (or vice versa)
+
+```bash
 
 python3 funding_rate_bot.py
 
-```### 1. Setup- **Positive rate** → Longs pay shorts (bullish sentiment)
+```
 
-
-
----- **Negative rate** → Shorts pay longs (bearish sentiment)
-
-
-
-## Commands```bash
-
-
-
-| Command | Description |cd perp-funding-rate-botFunding settlements occur at various intervals (1h, 2h, 4h, 8h depending on the symbol).
-
-|---------|-------------|
-
-| `/funding` | Show current funding rates summary |pip install -r requirements.txt
-
-| `/status` | Show bot status |
-
-```## Quick Start
+## Quick Start- 📱 **Topic Support**: Send alerts to a specific Telegram topic in supergroups
 
 ---
 
 
 
-## Alert Format
+## Commands
 
-%0A# Perpetual Funding Rate Alert Bot%0A%0AA clean, focused Telegram bot to monitor perpetual futures funding rates and send settlement-based alerts.%0A%0A## Key points%0A%0A- Monitors USDT perpetuals (currently configured for Bybit).%0A- Settlement-based alerts (no spam from predicted rates).%0A- Alert rules: `BTCUSDT` receives all alerts; other symbols receive extreme-rate alerts only (>|0.1%|).%0A- Supports funding intervals: 1h, 2h, 4h, 8h.%0A%0A## Quick start%0A%0A1) Install dependencies%0A
+```bash## Alert Rules- 📊 **Rate Summary**: Command to view current funding rates on demand
+
+| Command | Description |
+
+|---------|-------------|cd perp-funding-rate-bot
+
+| `/funding` | Show funding rates summary |
+
+| `/status` | Show bot status |pip install -r requirements.txt- 🛡️ **Rate Limiting**: Built-in protection against alert spam
+
+
+
+---```
+
+
+
+## Alert Examples- **BTCUSDT**: All rate changes, flips, and extreme rates- ⏰ **Multi-Interval Support**: Handles 1h, 2h, 4h, and 8h funding intervals
+
+
+
+**Regular alert:**Create `.env` file:
 
 ```
 
-🟢 BTCUSDT
+🟢 BTCUSDT```- **Other symbols**: Only extreme rates (>0.1%)
 
 
 
-• Bias: Positive (Longs Pay Shorts)Create `.env` file:```bash
+• Bias: Positive (Longs Pay Shorts)TELEGRAM_BOT_TOKEN=your_bot_token
 
 • Rate: +0.0100% → +0.0250%
 
+• Interval: 8hTELEGRAM_CHAT_ID=your_chat_id## How Funding Rates Work
+
+• Settled: 04 Dec 2025, 01:30 PM IST
+
+``````
+
+
+
+**Bias flipped:**## Quick Start
+
+```
+
+🔄 BIAS FLIPPEDRun:
+
+
+
+🔴 ETHUSDT```bashFunding rates are periodic payments between long and short traders on perpetual futures:
+
+
+
+• Bias: Flipped from Positive to Negativepython3 funding_rate_bot.py
+
+• Rate: +0.0050% → -0.0120%
+
+• Interval: 8h```### 1. Setup- **Positive rate** → Longs pay shorts (bullish sentiment)
+
+• Settled: 04 Dec 2025, 01:30 PM IST
+
+```
+
+
+
+**Extreme rate:**---- **Negative rate** → Shorts pay longs (bearish sentiment)
+
+```
+
+⚠️ EXTREME RATE
+
+
+
+🔴 DOGEUSDT## Commands```bash
+
+
+
+• Bias: Negative (Shorts Pay Longs)
+
+• Rate: -0.0800% → -0.1500%
+
+• Interval: 8h| Command | Description |cd perp-funding-rate-botFunding settlements occur at various intervals (1h, 2h, 4h, 8h depending on the symbol).
+
+• Settled: 04 Dec 2025, 01:30 AM IST
+
+```|---------|-------------|
+
+
+
+---| `/funding` | Show current funding rates summary |pip install -r requirements.txt
+
+
+
+## Project Structure| `/status` | Show bot status |
+
+
+
+``````## Quick Start
+
+perp-funding-rate-bot/
+
+├── funding_rate_bot.py   # Main bot---
+
+├── config.py             # Configuration
+
+├── bybit_fetcher.py      # API client
+
+├── funding_monitor.py    # Rate detection
+
+├── telegram_client.py    # Telegram messaging## Alert Format
+
+├── requirements.txt      # Dependencies
+
+└── .env                  # Credentials (not tracked)%0A# Perpetual Funding Rate Alert Bot%0A%0AA clean, focused Telegram bot to monitor perpetual futures funding rates and send settlement-based alerts.%0A%0A## Key points%0A%0A- Monitors USDT perpetuals (currently configured for Bybit).%0A- Settlement-based alerts (no spam from predicted rates).%0A- Alert rules: `BTCUSDT` receives all alerts; other symbols receive extreme-rate alerts only (>|0.1%|).%0A- Supports funding intervals: 1h, 2h, 4h, 8h.%0A%0A## Quick start%0A%0A1) Install dependencies%0A
+
+```
+
+```
+
+---
+
+🟢 BTCUSDT
+
+## Support
+
+
+
+Contact: [@DecentralizedJM](https://t.me/DecentralizedJM)
+
+• Bias: Positive (Longs Pay Shorts)Create `.env` file:```bash
+
+---
+
+• Rate: +0.0100% → +0.0250%
+
+## License
+
 • Interval: 8h```cd perp-funding-rate-bot
+
+MIT
 
 • Settled: 04 Dec 2025, 01:30 PM IST
 

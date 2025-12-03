@@ -100,9 +100,49 @@ class FundingRateBot:
         # Bot state
         self.running = True
         self.last_check = None
+        self.last_symbol_refresh = datetime.now(timezone.utc)
+        self.symbol_refresh_interval = 86400  # 24 hours in seconds
         
         logger.info(f"Bot initialized. Monitoring {len(self.symbols)} symbols")
         logger.info(f"Symbols: {', '.join(self.symbols[:10])}{'...' if len(self.symbols) > 10 else ''}")
+    
+    def refresh_symbols(self):
+        """Refresh the list of symbols from the exchange (for new listings/delistings)"""
+        if not self.config.MONITOR_ALL_SYMBOLS:
+            return
+        
+        logger.info("Refreshing symbol list from Bybit...")
+        new_symbols_data = self.fetcher.get_all_perpetual_symbols_with_intervals()
+        
+        if not new_symbols_data:
+            logger.warning("Failed to refresh symbols, keeping existing list")
+            return
+        
+        old_count = len(self.symbols)
+        old_symbols = set(self.symbols)
+        new_symbols = set(new_symbols_data.keys())
+        
+        # Detect changes
+        added = new_symbols - old_symbols
+        removed = old_symbols - new_symbols
+        
+        if added:
+            logger.info(f"New listings detected: {', '.join(sorted(added))}")
+        if removed:
+            logger.info(f"Delistings detected: {', '.join(sorted(removed))}")
+        
+        # Update
+        self.symbols_data = new_symbols_data
+        self.symbols = list(new_symbols_data.keys())
+        
+        # Update interval counts
+        self.interval_counts = {}
+        for data in self.symbols_data.values():
+            interval = str(data.get("fundingIntervalHours", 8))
+            self.interval_counts[interval] = self.interval_counts.get(interval, 0) + 1
+        
+        self.last_symbol_refresh = datetime.now(timezone.utc)
+        logger.info(f"Symbol refresh complete. Now monitoring {len(self.symbols)} symbols (was {old_count})")
     
     async def run(self):
         """Main bot loop"""
@@ -138,9 +178,15 @@ class FundingRateBot:
         """Main monitoring loop - checks for new funding settlements"""
         logger.info(f"Starting monitoring loop (interval: {self.config.CHECK_INTERVAL}s = {self.config.CHECK_INTERVAL // 60} min)")
         logger.info("Checking for funding SETTLEMENTS (not predicted rates)")
+        logger.info(f"Symbol list will refresh every {self.symbol_refresh_interval // 3600} hours")
         
         while self.running:
             try:
+                # Check if we need to refresh the symbol list (every 24 hours)
+                time_since_refresh = (datetime.now(timezone.utc) - self.last_symbol_refresh).total_seconds()
+                if time_since_refresh >= self.symbol_refresh_interval:
+                    self.refresh_symbols()
+                
                 await self.check_funding_settlements()
                 self.last_check = datetime.now(timezone.utc)
                 
