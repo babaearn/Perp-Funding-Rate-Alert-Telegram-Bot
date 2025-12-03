@@ -1,0 +1,10 @@
+# Bybit Funding Rate Alert Bot Dependencies
+
+# HTTP requests
+requests>=2.31.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Telegram bot (optional - we use requests directly but included for compatibility)
+python-telegram-bot>=20.0

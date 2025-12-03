@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  funding-rate-bot:
+    build: .
+    container_name: bybit-funding-rate-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - TZ=UTC
