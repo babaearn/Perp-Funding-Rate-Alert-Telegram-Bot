@@ -95,7 +95,7 @@ class TelegramClient:
         """Format funding rate alert as Telegram message"""
         symbol = alert.get("symbol", "UNKNOWN")
         rate = alert.get("fundingRate", 0)
-        prev_rate = alert.get("prevFundingRate", 0)
+        prev_rate = alert.get("prevFundingRate")
         alert_type = alert.get("alertType", "change")
         funding_interval = alert.get("fundingInterval", "8h")
         prev_interval = alert.get("prevFundingInterval", funding_interval)
@@ -103,7 +103,6 @@ class TelegramClient:
         
         # Format rates as percentages with + for positive
         rate_pct = rate * 100
-        prev_rate_pct = prev_rate * 100
         
         def format_rate(r):
             return f"+{r:.4f}%" if r >= 0 else f"{r:.4f}%"
@@ -114,23 +113,52 @@ class TelegramClient:
         else:
             color_emoji = "🔴"
         
+        # Handle PREDICTED alerts differently
+        if alert_type == "predicted":
+            if rate >= 0:
+                bias_text = "Positive (Longs Pay Shorts)"
+            else:
+                bias_text = "Negative (Shorts Pay Longs)"
+            
+            header = f"⚡ <b>PREDICTED EXTREME RATE</b>\n\n{color_emoji} <b>{symbol}</b>"
+            
+            message = f"""{header}
+
+• Bias: {bias_text}
+• Predicted Rate: <b>{format_rate(rate_pct)}</b>
+• Interval: {funding_interval}
+• Settles: {settlement_time}
+
+<i>This rate will settle at the next funding time</i>"""
+            
+            return message.strip()
+        
+        # For settlement alerts, we need prev_rate
+        prev_rate_pct = (prev_rate or 0) * 100
+        
         # Determine bias text based on sign change
-        prev_positive = prev_rate >= 0
+        prev_positive = (prev_rate or 0) >= 0
         curr_positive = rate >= 0
         is_flip = False
         
-        if prev_positive and not curr_positive:
-            bias_text = "Flipped from Positive to Negative"
-            color_emoji = "🔴"
-            is_flip = True
-        elif not prev_positive and curr_positive:
-            bias_text = "Flipped from Negative to Positive"
-            color_emoji = "🟢"
-            is_flip = True
-        elif curr_positive:
-            bias_text = "Positive (Longs Pay Shorts)"
+        if prev_rate is not None:
+            if prev_positive and not curr_positive:
+                bias_text = "Flipped from Positive to Negative"
+                color_emoji = "🔴"
+                is_flip = True
+            elif not prev_positive and curr_positive:
+                bias_text = "Flipped from Negative to Positive"
+                color_emoji = "🟢"
+                is_flip = True
+            elif curr_positive:
+                bias_text = "Positive (Longs Pay Shorts)"
+            else:
+                bias_text = "Negative (Shorts Pay Longs)"
         else:
-            bias_text = "Negative (Shorts Pay Longs)"
+            if curr_positive:
+                bias_text = "Positive (Longs Pay Shorts)"
+            else:
+                bias_text = "Negative (Shorts Pay Longs)"
         
         # Check for interval change
         interval_text = f"{funding_interval}"
@@ -149,10 +177,15 @@ class TelegramClient:
             header = f"{color_emoji} <b>{symbol}</b>"
         
         # Clean format with only green/red dots and bullets
+        if prev_rate is not None:
+            rate_line = f"• Rate: <b>{format_rate(prev_rate_pct)}</b> → <b>{format_rate(rate_pct)}</b>"
+        else:
+            rate_line = f"• Rate: <b>{format_rate(rate_pct)}</b>"
+        
         message = f"""{header}
 
 • Bias: {bias_text}
-• Rate: <b>{format_rate(prev_rate_pct)}</b> → <b>{format_rate(rate_pct)}</b>
+{rate_line}
 • Interval: {interval_text}
 • Settled: {settlement_time}"""
         
@@ -178,11 +211,11 @@ class TelegramClient:
 Monitoring <b>{len(symbols)}</b> symbols for funding rate changes.
 {interval_info}
 <b>Alert Types:</b>
-• 📊 Rate changes at settlement
-• ⚠️ Extreme rates (≥0.1%)
+• ⚡ Predicted extreme rates (before settlement)
+• ⚠️ Extreme rates at settlement (≥0.1%)
 • 🔄 Rate flips (+ ↔ -)
 
-<i>Bot checks every 30 minutes to catch all settlement times.</i>
+<i>Bot checks every 30 minutes.</i>
 """
         return await self.send_message(message.strip())
     

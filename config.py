@@ -72,6 +72,16 @@ class FundingRateConfig:
     FULL_ALERT_SYMBOLS: List[str] = field(default_factory=lambda: ["BTCUSDT"])
     
     # ==========================================================================
+    # PREDICTED RATE ALERTS
+    # ==========================================================================
+    # Also alert on predicted (current) funding rates before settlement
+    # These are the rates that WILL settle at next funding time
+    ALERT_ON_PREDICTED_RATES = True
+    
+    # Only send predicted alerts for extreme rates (prevent spam)
+    PREDICTED_RATE_THRESHOLD = 0.001  # 0.1% - same as extreme threshold
+    
+    # ==========================================================================
     # DATA STORAGE
     # ==========================================================================
     DATA_DIR = "data"

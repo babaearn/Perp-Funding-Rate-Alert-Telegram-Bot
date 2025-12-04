@@ -155,6 +155,9 @@ class FundingRateBot:
         for sig in (signal.SIGINT, signal.SIGTERM):
             signal.signal(sig, self._handle_shutdown)
         
+        # Start command listener IMMEDIATELY (don't wait for first check)
+        logger.info("Starting command listener...")
+        
         try:
             await asyncio.gather(
                 self.monitoring_loop(),
@@ -200,8 +203,9 @@ class FundingRateBot:
         """Fetch latest settlements and send alerts for new ones"""
         logger.debug("Checking for new funding settlements...")
         
-        # Fetch current ticker data (for prices, intervals, etc.)
-        ticker_data = self.fetcher.get_tickers(self.symbols)
+        # Run blocking fetcher in thread pool to not block async loop
+        loop = asyncio.get_event_loop()
+        ticker_data = await loop.run_in_executor(None, self.fetcher.get_tickers, self.symbols)
         
         if not ticker_data:
             logger.warning("No ticker data received from Bybit")
@@ -212,10 +216,9 @@ class FundingRateBot:
             if symbol in self.symbols_data:
                 data["fundingIntervalHours"] = self.symbols_data[symbol].get("fundingIntervalHours", 8)
         
-        # Fetch latest settlement for each symbol
-        # This is rate-limited internally
+        # Fetch latest settlement for each symbol in thread pool
         logger.debug(f"Fetching settlement history for {len(self.symbols)} symbols...")
-        settlements = self.fetcher.get_latest_settlements_batch(self.symbols)
+        settlements = await loop.run_in_executor(None, self.fetcher.get_latest_settlements_batch, self.symbols)
         
         if not settlements:
             logger.warning("No settlement data received")
@@ -226,46 +229,66 @@ class FundingRateBot:
         # Check for new settlements and generate alerts
         alerts = self.monitor.check_settlements(settlements, ticker_data)
         
-        # Send alerts
+        # Clear predicted alert tracking for symbols that just settled
         for alert in alerts:
+            self.monitor.clear_predicted_alerts_after_settlement(alert['symbol'])
+        
+        # Also check predicted (current) rates for extreme values
+        predicted_alerts = self.monitor.check_predicted_rates(ticker_data)
+        
+        # Limit predicted alerts to top 5 most extreme to avoid spam
+        if len(predicted_alerts) > 5:
+            predicted_alerts = sorted(
+                predicted_alerts, 
+                key=lambda x: abs(x.get('fundingRate', 0)), 
+                reverse=True
+            )[:5]
+            logger.info(f"Limited to top 5 most extreme predicted rates")
+        
+        # Combine alerts (settlements first, then predictions)
+        all_alerts = alerts + predicted_alerts
+        
+        # Send alerts quickly (reduce delay)
+        for alert in all_alerts:
             success = await self.telegram.send_funding_alert(alert)
             if success:
                 logger.info(f"Alert sent for {alert['symbol']}: {alert['alertType']}")
             else:
                 logger.error(f"Failed to send alert for {alert['symbol']}")
             
-            # Small delay between alerts to avoid rate limits
-            await asyncio.sleep(0.5)
+            # Minimal delay between alerts
+            await asyncio.sleep(0.3)
     
     async def command_listener(self):
         """Listen for Telegram commands"""
-        import requests
+        import aiohttp
         
         logger.info("Starting command listener...")
         last_update_id = 0
         
-        while self.running:
-            try:
-                url = f"https://api.telegram.org/bot{self.telegram_token}/getUpdates"
-                params = {
-                    "offset": last_update_id + 1,
-                    "timeout": 30
-                }
-                
-                response = requests.get(url, params=params, timeout=35)
-                
-                if response.status_code == 200:
-                    data = response.json()
+        async with aiohttp.ClientSession() as session:
+            while self.running:
+                try:
+                    url = f"https://api.telegram.org/bot{self.telegram_token}/getUpdates"
+                    params = {
+                        "offset": last_update_id + 1,
+                        "timeout": 5  # Short timeout for faster response
+                    }
                     
-                    if data.get("ok"):
-                        for update in data.get("result", []):
-                            last_update_id = update.get("update_id", last_update_id)
-                            await self.handle_command(update)
-                
-            except requests.exceptions.Timeout:
-                continue
-            except Exception as e:
-                logger.error(f"Error in command listener: {e}")
+                    async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            
+                            if data.get("ok"):
+                                for update in data.get("result", []):
+                                    last_update_id = update.get("update_id", last_update_id)
+                                    await self.handle_command(update)
+                    
+                except asyncio.TimeoutError:
+                    continue
+                except Exception as e:
+                    logger.error(f"Error in command listener: {e}")
+                    await asyncio.sleep(1)
                 await asyncio.sleep(5)
     
     async def handle_command(self, update: dict):
@@ -288,25 +311,126 @@ For support, contact @DecentralizedJM"""
         
         if not text.startswith("/"):
             return
-        parts = text.split()
-        command = parts[0].lower().split('@')[0]  # Remove @botname if present
-
-        # /funding - send funding rates summary
-        if command == "/funding":
-            rates = self.fetcher.get_tickers(self.symbols)
-            await self.telegram.send_summary(rates)
         
-        # /status - show bot status
+        parts = text.split()
+        command_full = parts[0].lower()
+        command = command_full.split('@')[0]  # Get command without @botname
+        
+        # Bot username for @mention check
+        bot_username = "mudrex_funding_rate_bot"
+        has_mention = "@" in command_full
+        is_for_this_bot = bot_username in command_full if has_mention else True
+        
+        # /funding [SYMBOL] - send funding rates (works without @mention)
+        if command == "/funding" and is_for_this_bot:
+            if len(parts) > 1:
+                # Specific symbol requested
+                symbol = parts[1].upper()
+                if not symbol.endswith("USDT"):
+                    symbol = symbol + "USDT"
+                await self.send_symbol_funding(symbol)
+            else:
+                # No symbol - show top 10 extremes
+                rates = self.fetcher.get_tickers(self.symbols)
+                await self.telegram.send_summary(rates)
+        
+        # /status - show bot status (REQUIRES @mention to avoid conflicts)
         elif command == "/status":
-            status_msg = f"""<b>Funding Rate Bot Status</b>
+            # Only respond if explicitly mentioned
+            if has_mention and is_for_this_bot:
+                status_msg = f"""<b>Funding Rate Bot Status</b>
 
 • Status: {'Running' if self.running else 'Stopped'}
 • Symbols Monitored: {len(self.symbols)}
 • Last Check: {self.last_check.strftime('%H:%M:%S UTC') if self.last_check else 'Starting...'}
 
 <i>A Mudrex service</i>"""
-            await self.telegram.send_message(status_msg)
+                await self.telegram.send_message(status_msg)
     
+    async def send_symbol_funding(self, symbol: str):
+        """Send current and predicted funding rate for a specific symbol"""
+        try:
+            # Check if symbol exists
+            if symbol not in self.symbols:
+                await self.telegram.send_message(f"❌ Symbol <b>{symbol}</b> not found on Bybit.")
+                return
+            
+            # Fetch current ticker (has predicted rate)
+            ticker_data = self.fetcher.get_tickers([symbol])
+            
+            # Fetch last settlement
+            settlements = self.fetcher.get_latest_settlements_batch([symbol])
+            
+            if not ticker_data or symbol not in ticker_data:
+                await self.telegram.send_message(f"❌ No data available for <b>{symbol}</b>.")
+                return
+            
+            ticker = ticker_data.get(symbol, {})
+            settlement = settlements.get(symbol, {}) if settlements else {}
+            
+            # Current (predicted) rate
+            predicted_rate = float(ticker.get("fundingRate", 0))
+            predicted_pct = predicted_rate * 100
+            
+            # Last settled rate
+            settled_rate = float(settlement.get("fundingRate", 0)) if settlement else 0
+            settled_pct = settled_rate * 100
+            
+            # Format rates
+            def format_rate(r):
+                return f"+{r:.4f}%" if r >= 0 else f"{r:.4f}%"
+            
+            # Color based on predicted rate
+            color = "🟢" if predicted_rate >= 0 else "🔴"
+            
+            # Bias text
+            if predicted_rate >= 0:
+                bias = "Positive (Longs Pay Shorts)"
+            else:
+                bias = "Negative (Shorts Pay Longs)"
+            
+            # Get interval
+            interval = 8
+            if symbol in self.symbols_data:
+                interval = self.symbols_data[symbol].get("fundingIntervalHours", 8)
+            
+            # Next funding time
+            next_funding = int(ticker.get("nextFundingTime", 0))
+            if next_funding:
+                from datetime import datetime, timezone, timedelta
+                dt = datetime.fromtimestamp(next_funding / 1000, tz=timezone.utc)
+                ist_offset = timedelta(hours=5, minutes=30)
+                dt_ist = dt + ist_offset
+                next_time_str = dt_ist.strftime('%d %b, %I:%M %p IST')
+            else:
+                next_time_str = "Unknown"
+            
+            # Last settlement time
+            last_settlement = int(settlement.get("fundingRateTimestamp", 0)) if settlement else 0
+            if last_settlement:
+                from datetime import datetime, timezone, timedelta
+                dt = datetime.fromtimestamp(last_settlement / 1000, tz=timezone.utc)
+                ist_offset = timedelta(hours=5, minutes=30)
+                dt_ist = dt + ist_offset
+                last_time_str = dt_ist.strftime('%d %b, %I:%M %p IST')
+            else:
+                last_time_str = "Unknown"
+            
+            message = f"""{color} <b>{symbol}</b>
+
+• Bias: {bias}
+• Predicted Rate: <b>{format_rate(predicted_pct)}</b>
+• Last Settled Rate: {format_rate(settled_pct)}
+• Interval: {interval}h
+• Next Settlement: {next_time_str}
+• Last Settlement: {last_time_str}"""
+            
+            await self.telegram.send_message(message.strip())
+            
+        except Exception as e:
+            logger.error(f"Error getting funding rate for {symbol}: {e}")
+            await self.telegram.send_message(f"❌ Error fetching data for {symbol}")
+
     async def get_symbol_funding_rate(self, symbol: str):
         """Get and send funding rate for a specific symbol"""
         try:

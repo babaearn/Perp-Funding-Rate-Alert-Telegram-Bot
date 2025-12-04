@@ -22,6 +22,9 @@ class FundingRateMonitor:
         # Track previous settlement rates for comparison
         self.previous_settlement_rates: Dict[str, float] = {}
         
+        # Track predicted rates we've already alerted on (to avoid spam)
+        self.alerted_predicted_rates: Dict[str, float] = {}
+        
         # Rate limiting
         self.alert_count_this_hour = 0
         self.hour_start = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
@@ -159,50 +162,37 @@ class FundingRateMonitor:
         Create an alert for a funding settlement
         
         Alert Rules:
-        - BTCUSDT (and symbols in FULL_ALERT_SYMBOLS): Get ALL alerts
-        - Other symbols: Only EXTREME rate alerts (>0.1%)
+        - BTCUSDT (and symbols in FULL_ALERT_SYMBOLS): Only SIGN CHANGE (flip) alerts
+        - Other symbols: No settlement alerts (only predicted alerts)
         
         Returns:
             Alert dict if alert should be sent, None otherwise
         """
-        rate_change = current_rate - prev_rate
-        abs_change = abs(rate_change)
-        
-        # Check if this symbol gets full alerts or only extreme alerts
+        # Check if this symbol gets flip alerts
         full_alert_symbols = getattr(self.config, 'FULL_ALERT_SYMBOLS', ['BTCUSDT'])
         is_full_alert_symbol = symbol in full_alert_symbols
         
-        # Determine alert type
+        # Only BTCUSDT gets settlement alerts, and only for sign changes
+        if not is_full_alert_symbol:
+            return None
+        
+        # Determine alert type - only sign change for BTCUSDT
         alert_type = None
         
-        # Check for extreme rate (always alert for ALL symbols)
-        if abs(current_rate) >= self.config.EXTREME_RATE_THRESHOLD:
-            alert_type = "extreme"
-            logger.info(f"{symbol}: Extreme funding rate at settlement: {current_rate:.6f}")
-        
-        # For non-full-alert symbols, only send extreme alerts
-        if not is_full_alert_symbol:
-            if alert_type != "extreme":
-                return None
-        
-        # For full-alert symbols, also check for sign change and regular changes
-        if is_full_alert_symbol and alert_type is None:
-            # Check for sign change (flip)
-            if self.config.ALERT_ON_SIGN_CHANGE:
-                if prev_rate > 0 and current_rate < 0:
-                    alert_type = "sign_change"
-                    logger.info(f"{symbol}: Rate flipped from positive to negative at settlement")
-                elif prev_rate < 0 and current_rate > 0:
-                    alert_type = "sign_change"
-                    logger.info(f"{symbol}: Rate flipped from negative to positive at settlement")
-            
-            # Check for significant change
-            if alert_type is None and abs_change >= self.config.MIN_RATE_CHANGE_THRESHOLD:
-                alert_type = "settlement"
-                logger.debug(f"{symbol}: Rate changed by {rate_change:.6f} at settlement")
+        # Check for sign change (flip)
+        if self.config.ALERT_ON_SIGN_CHANGE:
+            if prev_rate > 0 and current_rate < 0:
+                alert_type = "sign_change"
+                logger.info(f"{symbol}: Rate flipped from positive to negative at settlement")
+            elif prev_rate < 0 and current_rate > 0:
+                alert_type = "sign_change"
+                logger.info(f"{symbol}: Rate flipped from negative to positive at settlement")
         
         if alert_type is None:
             return None
+        
+        # Calculate rate change
+        rate_change = current_rate - prev_rate
         
         # Get funding interval from ticker if available
         funding_interval = ticker_data.get("fundingIntervalHours", 8)
@@ -247,3 +237,85 @@ class FundingRateMonitor:
                 "rate": most_negative[1].get("fundingRate", 0)
             }
         }
+
+    def check_predicted_rates(self, ticker_data: Dict[str, Dict]) -> List[Dict]:
+        """
+        Check current (predicted) funding rates and generate alerts for extreme values
+        
+        These are the rates that WILL settle at the next funding time.
+        Only alerts for extreme rates to avoid spam.
+        
+        Args:
+            ticker_data: Dict mapping symbol to current ticker data with fundingRate
+        
+        Returns:
+            List of alert dictionaries for extreme predicted rates
+        """
+        if not getattr(self.config, 'ALERT_ON_PREDICTED_RATES', False):
+            return []
+        
+        alerts = []
+        threshold = getattr(self.config, 'PREDICTED_RATE_THRESHOLD', 0.001)
+        
+        for symbol, data in ticker_data.items():
+            current_rate = float(data.get("fundingRate", 0))
+            
+            # Only alert for extreme rates
+            if abs(current_rate) < threshold:
+                # Clear from alerted list if rate is no longer extreme
+                if symbol in self.alerted_predicted_rates:
+                    del self.alerted_predicted_rates[symbol]
+                continue
+            
+            # Check if we already alerted for this rate (within same direction)
+            prev_alerted = self.alerted_predicted_rates.get(symbol)
+            if prev_alerted is not None:
+                # Only re-alert if rate changed significantly (by 50%+) or flipped sign
+                rate_change = abs(current_rate - prev_alerted) / abs(prev_alerted) if prev_alerted != 0 else 1
+                same_sign = (current_rate > 0) == (prev_alerted > 0)
+                if same_sign and rate_change < 0.5:
+                    continue
+            
+            if not self._can_send_alert():
+                continue
+            
+            # Create predicted alert
+            alert = self._create_predicted_alert(symbol, current_rate, data)
+            if alert:
+                alerts.append(alert)
+                self.alert_count_this_hour += 1
+                self.alerted_predicted_rates[symbol] = current_rate
+                logger.info(f"{symbol}: Extreme PREDICTED funding rate: {current_rate:.6f}")
+        
+        if alerts:
+            logger.info(f"Generated {len(alerts)} predicted rate alerts")
+        
+        return alerts
+    
+    def _create_predicted_alert(self, symbol: str, rate: float, ticker_data: Dict) -> Dict:
+        """Create an alert for a predicted (upcoming) funding rate"""
+        from datetime import timedelta
+        
+        # Calculate next funding time
+        next_funding_time = int(ticker_data.get("nextFundingTime", 0))
+        
+        funding_interval = ticker_data.get("fundingIntervalHours", 8)
+        
+        return {
+            "symbol": symbol,
+            "fundingRate": rate,
+            "prevFundingRate": None,  # No previous for predicted
+            "rateChange": None,
+            "alertType": "predicted",
+            "lastPrice": ticker_data.get("lastPrice", 0),
+            "settlementTime": self._format_settlement_time_ist(next_funding_time),
+            "fundingInterval": f"{funding_interval}h",
+            "prevFundingInterval": None,
+            "volume24h": ticker_data.get("volume24h", 0),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    
+    def clear_predicted_alerts_after_settlement(self, symbol: str):
+        """Clear predicted alert tracking after a settlement occurs"""
+        if symbol in self.alerted_predicted_rates:
+            del self.alerted_predicted_rates[symbol]
