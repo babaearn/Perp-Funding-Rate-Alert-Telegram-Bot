@@ -200,7 +200,7 @@ For support, contact @DecentralizedJM"""
         data = await self.get_symbol_data(symbol)
         
         if not data:
-            await self.send_message(chat_id, f"❌ Symbol <b>{symbol}</b> not found on Bybit.")
+            await self.send_message(chat_id, f"❌ Symbol <b>{symbol}</b> not found on Mudrex.")
             return
         
         rate = data["fundingRate"]

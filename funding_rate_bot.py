@@ -352,7 +352,7 @@ For support, contact @DecentralizedJM"""
         try:
             # Check if symbol exists
             if symbol not in self.symbols:
-                await self.telegram.send_message(f"❌ Symbol <b>{symbol}</b> not found on Bybit.")
+                await self.telegram.send_message(f"❌ Symbol <b>{symbol}</b> not found on Mudrex.")
                 return
             
             # Fetch current ticker (has predicted rate)
