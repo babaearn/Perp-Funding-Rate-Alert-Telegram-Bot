@@ -222,7 +222,7 @@ Monitoring <b>{len(symbols)}</b> symbols for funding rate changes.
     async def send_startup_message_old(self, symbols: list) -> bool:
         """Send bot startup notification"""
         message = f"""
-🚀 <b>Bybit Funding Rate Bot Started</b>
+🚀 <b>Mudrex Funding Rate Bot Started</b>
 
 Monitoring {len(symbols)} symbols for funding rate changes:
 {', '.join(symbols[:5])}{'...' if len(symbols) > 5 else ''}
