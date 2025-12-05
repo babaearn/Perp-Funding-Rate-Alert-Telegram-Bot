@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # Telegram config
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TOPIC_ID = os.getenv("TELEGRAM_TOPIC_ID")
 BOT_USERNAME = "mudrex_funding_rate_bot"  # lowercase for comparison
 
 # Bybit API
@@ -92,10 +93,11 @@ class CommandHandler:
         chat = message.get("chat", {})
         chat_id = chat.get("id")
         chat_type = chat.get("type", "private")
+        message_thread_id = message.get("message_thread_id")
         
         # Debug log all messages
         if text:
-            logger.info(f"Received: '{text}' from chat {chat_id} ({chat_type})")
+            logger.info(f"Received: '{text}' from chat {chat_id} ({chat_type}) topic {message_thread_id}")
         
         # Handle DMs
         if chat_type == "private":
@@ -107,6 +109,10 @@ To receive funding rate alerts, please join our group.
 
 For support, contact @DecentralizedJM"""
             )
+            return
+        
+        # Only respond to commands from the configured topic
+        if TOPIC_ID and str(message_thread_id) != str(TOPIC_ID):
             return
         
         if not text.startswith("/"):
@@ -144,7 +150,14 @@ For support, contact @DecentralizedJM"""
             url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
             payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
             
+            # Add topic ID if configured
+            if TOPIC_ID:
+                payload["message_thread_id"] = int(TOPIC_ID)
+            
             async with self.session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    error = await resp.text()
+                    logger.error(f"Send message failed: {error}")
                 return resp.status == 200
         except Exception as e:
             logger.error(f"Send message error: {e}")

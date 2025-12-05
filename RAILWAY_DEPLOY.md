@@ -6,7 +6,7 @@
 2. Set environment variables in Railway dashboard:
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_CHAT_ID`
-   - `TELEGRAM_TOPIC_ID` (optional)
+   - `TELEGRAM_TOPIC_ID`
 
 3. Deploy!
 
@@ -16,7 +16,7 @@
 |----------|----------|-------------|
 | `TELEGRAM_BOT_TOKEN` | ✅ | Bot token from @BotFather |
 | `TELEGRAM_CHAT_ID` | ✅ | Target group/chat ID |
-| `TELEGRAM_TOPIC_ID` | ❌ | Topic ID for forum groups |
+| `TELEGRAM_TOPIC_ID` | ✅ | Topic ID for forum groups |
 
 ## Files Added for Railway
 
