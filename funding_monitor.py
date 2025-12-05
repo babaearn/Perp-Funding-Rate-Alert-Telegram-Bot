@@ -23,7 +23,11 @@ class FundingRateMonitor:
         self.previous_settlement_rates: Dict[str, float] = {}
         
         # Track predicted rates we've already alerted on (to avoid spam)
-        self.alerted_predicted_rates: Dict[str, float] = {}
+        # Now stores (rate, timestamp) tuple for time-based cooldown
+        self.alerted_predicted_rates: Dict[str, tuple] = {}
+        
+        # Cooldown period for predicted alerts (4 hours in seconds)
+        self.PREDICTED_ALERT_COOLDOWN = 4 * 60 * 60
         
         # Rate limiting
         self.alert_count_this_hour = 0
@@ -41,7 +45,13 @@ class FundingRateMonitor:
                     state = json.load(f)
                     self.last_settlement_timestamps = state.get("timestamps", {})
                     self.previous_settlement_rates = state.get("rates", {})
-                    logger.info(f"Loaded state for {len(self.last_settlement_timestamps)} symbols")
+                    # Load alerted_predicted as dict of (rate, timestamp) tuples
+                    alerted = state.get("alerted_predicted", {})
+                    self.alerted_predicted_rates = {
+                        k: tuple(v) if isinstance(v, list) else (v, 0) 
+                        for k, v in alerted.items()
+                    }
+                    logger.info(f"Loaded state for {len(self.last_settlement_timestamps)} symbols, {len(self.alerted_predicted_rates)} predicted alerts tracked")
         except Exception as e:
             logger.warning(f"Could not load state file: {e}")
     
@@ -50,9 +60,12 @@ class FundingRateMonitor:
         try:
             state_file = getattr(self.config, 'SETTLEMENT_HISTORY_FILE', self.config.STATE_FILE)
             os.makedirs(os.path.dirname(state_file), exist_ok=True)
+            # Convert tuples to lists for JSON serialization
+            alerted_for_json = {k: list(v) for k, v in self.alerted_predicted_rates.items()}
             state = {
                 "timestamps": self.last_settlement_timestamps,
                 "rates": self.previous_settlement_rates,
+                "alerted_predicted": alerted_for_json,
                 "last_updated": datetime.now(timezone.utc).isoformat()
             }
             with open(state_file, 'w') as f:
@@ -256,6 +269,7 @@ class FundingRateMonitor:
         
         alerts = []
         threshold = getattr(self.config, 'PREDICTED_RATE_THRESHOLD', 0.001)
+        current_time = datetime.now(timezone.utc).timestamp()
         
         for symbol, data in ticker_data.items():
             current_rate = float(data.get("fundingRate", 0))
@@ -267,12 +281,19 @@ class FundingRateMonitor:
                     del self.alerted_predicted_rates[symbol]
                 continue
             
-            # Check if we already alerted for this rate (within same direction)
+            # Check if we already alerted for this symbol recently
             prev_alerted = self.alerted_predicted_rates.get(symbol)
             if prev_alerted is not None:
-                # Only re-alert if rate changed significantly (by 50%+) or flipped sign
-                rate_change = abs(current_rate - prev_alerted) / abs(prev_alerted) if prev_alerted != 0 else 1
-                same_sign = (current_rate > 0) == (prev_alerted > 0)
+                prev_rate, prev_time = prev_alerted
+                time_since_alert = current_time - prev_time
+                
+                # Skip if within cooldown period (4 hours) and same direction
+                same_sign = (current_rate > 0) == (prev_rate > 0)
+                if same_sign and time_since_alert < self.PREDICTED_ALERT_COOLDOWN:
+                    continue
+                
+                # Also skip if rate hasn't changed significantly (50%+)
+                rate_change = abs(current_rate - prev_rate) / abs(prev_rate) if prev_rate != 0 else 1
                 if same_sign and rate_change < 0.5:
                     continue
             
@@ -284,11 +305,12 @@ class FundingRateMonitor:
             if alert:
                 alerts.append(alert)
                 self.alert_count_this_hour += 1
-                self.alerted_predicted_rates[symbol] = current_rate
+                self.alerted_predicted_rates[symbol] = (current_rate, current_time)
                 logger.info(f"{symbol}: Extreme PREDICTED funding rate: {current_rate:.6f}")
         
         if alerts:
             logger.info(f"Generated {len(alerts)} predicted rate alerts")
+            self._save_state()  # Persist predicted alert tracking
         
         return alerts
     
