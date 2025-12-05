@@ -26,8 +26,8 @@ class FundingRateMonitor:
         # Now stores (rate, timestamp) tuple for time-based cooldown
         self.alerted_predicted_rates: Dict[str, tuple] = {}
         
-        # Cooldown period for predicted alerts (4 hours in seconds)
-        self.PREDICTED_ALERT_COOLDOWN = 4 * 60 * 60
+        # Cooldown period for predicted alerts (59 minutes in seconds)
+        self.PREDICTED_ALERT_COOLDOWN = 59 * 60
         
         # Rate limiting
         self.alert_count_this_hour = 0
