@@ -419,7 +419,7 @@ For support, contact @DecentralizedJM"""
             message = f"""{color} <b>{symbol}</b>
 
 • Bias: {bias}
-• Predicted Rate: <b>{format_rate(predicted_pct)}</b>
+• Live Rate: <b>{format_rate(predicted_pct)}</b>
 • Last Settled Rate: {format_rate(settled_pct)}
 • Interval: {interval}h
 • Next Settlement: {next_time_str}

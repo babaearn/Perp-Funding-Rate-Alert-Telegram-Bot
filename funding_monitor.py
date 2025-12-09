@@ -300,22 +300,22 @@ class FundingRateMonitor:
             if not self._can_send_alert():
                 continue
             
-            # Create predicted alert
+            # Create live rate alert
             alert = self._create_predicted_alert(symbol, current_rate, data)
             if alert:
                 alerts.append(alert)
                 self.alert_count_this_hour += 1
                 self.alerted_predicted_rates[symbol] = (current_rate, current_time)
-                logger.info(f"{symbol}: Extreme PREDICTED funding rate: {current_rate:.6f}")
+                logger.info(f"{symbol}: Extreme LIVE funding rate: {current_rate:.6f}")
         
         if alerts:
-            logger.info(f"Generated {len(alerts)} predicted rate alerts")
-            self._save_state()  # Persist predicted alert tracking
+            logger.info(f"Generated {len(alerts)} live rate alerts")
+            self._save_state()  # Persist live alert tracking
         
         return alerts
     
     def _create_predicted_alert(self, symbol: str, rate: float, ticker_data: Dict) -> Dict:
-        """Create an alert for a predicted (upcoming) funding rate"""
+        """Create an alert for a live (upcoming) funding rate"""
         from datetime import timedelta
         
         # Calculate next funding time

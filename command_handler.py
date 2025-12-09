@@ -223,7 +223,7 @@ For support, contact @DecentralizedJM"""
         message = f"""{color} <b>{symbol}</b>
 
 • Bias: {bias}
-• Predicted Rate: <b>{rate_str}</b>
+• Live Rate: <b>{rate_str}</b>
 • Next Settlement: {next_time_str}"""
         
         await self.send_message(chat_id, message)

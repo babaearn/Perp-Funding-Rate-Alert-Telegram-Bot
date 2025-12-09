@@ -4,7 +4,7 @@ Real-time funding rate alerts for perpetual futures. A **Mudrex** service.
 
 ## Features
 
-- Settlement-based alerts (no spam from predicted rates)
+- Settlement-based alerts (no spam from live rate fluctuations)
 - Extreme rate detection (alerts when rates ≥ ±0.5%)
 - Bias flip detection (alerts when funding flips positive ↔ negative)
 - Multi-interval support (1h, 2h, 4h, 8h)

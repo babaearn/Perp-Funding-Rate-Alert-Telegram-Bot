@@ -113,19 +113,19 @@ class TelegramClient:
         else:
             color_emoji = "🔴"
         
-        # Handle PREDICTED alerts differently
+        # Handle LIVE RATE alerts (previously called "predicted")
         if alert_type == "predicted":
             if rate >= 0:
                 bias_text = "Positive (Longs Pay Shorts)"
             else:
                 bias_text = "Negative (Shorts Pay Longs)"
             
-            header = f"⚡ <b>PREDICTED EXTREME RATE</b>\n\n{color_emoji} <b>{symbol}</b>"
+            header = f"⚡ <b>EXTREME LIVE RATE</b>\n\n{color_emoji} <b>{symbol}</b>"
             
             message = f"""{header}
 
 • Bias: {bias_text}
-• Predicted Rate: <b>{format_rate(rate_pct)}</b>
+• Live Rate: <b>{format_rate(rate_pct)}</b>
 • Interval: {funding_interval}
 • Settles: {settlement_time}
 
@@ -211,7 +211,7 @@ class TelegramClient:
 Monitoring <b>{len(symbols)}</b> symbols for funding rate changes.
 {interval_info}
 <b>Alert Types:</b>
-• ⚡ Predicted extreme rates (before settlement)
+• ⚡ Extreme live rates (before settlement)
 • ⚠️ Extreme rates at settlement (≥0.1%)
 • 🔄 Rate flips (+ ↔ -)
 
