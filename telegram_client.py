@@ -120,7 +120,7 @@ class TelegramClient:
             else:
                 bias_text = "Negative (Shorts Pay Longs)"
             
-            header = f"⚡ <b>EXTREME LIVE RATE</b>\n\n{color_emoji} <b>{symbol}</b>"
+            header = f"⚡ <b>EXTREME FUNDING RATE</b>\n\n{color_emoji} <b>{symbol}</b>"
             
             message = f"""{header}
 
