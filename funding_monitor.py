@@ -241,56 +241,97 @@ class FundingRateMonitor:
     def check_predicted_rates(self, ticker_data: Dict[str, Dict]) -> List[Dict]:
         """
         Check current (predicted) funding rates and generate alerts for extreme values
-        
+
         These are the rates that WILL settle at the next funding time.
         Only alerts for extreme rates to avoid spam.
-        
+
         Args:
             ticker_data: Dict mapping symbol to current ticker data with fundingRate
-        
+
         Returns:
             List of alert dictionaries for extreme predicted rates
         """
         if not getattr(self.config, 'ALERT_ON_PREDICTED_RATES', False):
             return []
-        
-        alerts = []
+
         threshold = getattr(self.config, 'PREDICTED_RATE_THRESHOLD', 0.001)
-        
+        alerts = []
+
         for symbol, data in ticker_data.items():
             current_rate = float(data.get("fundingRate", 0))
-            
-            # Only alert for extreme rates
-            if abs(current_rate) < threshold:
-                # Clear from alerted list if rate is no longer extreme
-                if symbol in self.alerted_predicted_rates:
-                    del self.alerted_predicted_rates[symbol]
+
+            # Handle non-extreme rates: clear from tracking and skip
+            if not self._is_rate_extreme(current_rate, threshold):
+                self._clear_alerted_rate(symbol)
                 continue
-            
-            # Check if we already alerted for this rate (within same direction)
-            prev_alerted = self.alerted_predicted_rates.get(symbol)
-            if prev_alerted is not None:
-                # Only re-alert if rate changed significantly (by 50%+) or flipped sign
-                rate_change = abs(current_rate - prev_alerted) / abs(prev_alerted) if prev_alerted != 0 else 1
-                same_sign = (current_rate > 0) == (prev_alerted > 0)
-                if same_sign and rate_change < 0.5:
-                    continue
-            
+
+            # Skip if we shouldn't re-alert for this rate yet
+            if not self._should_alert_for_rate(symbol, current_rate):
+                continue
+
+            # Skip if we've hit rate limit
             if not self._can_send_alert():
                 continue
-            
-            # Create predicted alert
+
+            # Create and track alert
             alert = self._create_predicted_alert(symbol, current_rate, data)
             if alert:
-                alerts.append(alert)
-                self.alert_count_this_hour += 1
-                self.alerted_predicted_rates[symbol] = current_rate
-                logger.info(f"{symbol}: Extreme PREDICTED funding rate: {current_rate:.6f}")
-        
+                self._record_alert(symbol, current_rate, alerts, alert)
+
         if alerts:
             logger.info(f"Generated {len(alerts)} predicted rate alerts")
-        
+
         return alerts
+
+    def _is_rate_extreme(self, rate: float, threshold: float) -> bool:
+        """Check if a funding rate exceeds the extreme threshold"""
+        return abs(rate) >= threshold
+
+    def _clear_alerted_rate(self, symbol: str):
+        """Remove symbol from alerted rates tracking"""
+        if symbol in self.alerted_predicted_rates:
+            del self.alerted_predicted_rates[symbol]
+
+    def _should_alert_for_rate(self, symbol: str, current_rate: float) -> bool:
+        """
+        Determine if we should alert for this rate
+
+        We alert if:
+        - This is the first time seeing an extreme rate for this symbol, OR
+        - The rate changed significantly (50%+) from when we last alerted, OR
+        - The rate flipped sign (positive to negative or vice versa)
+        """
+        prev_alerted = self.alerted_predicted_rates.get(symbol)
+
+        # First time seeing extreme rate for this symbol
+        if prev_alerted is None:
+            return True
+
+        # Check if rate flipped sign
+        if self._rate_flipped_sign(current_rate, prev_alerted):
+            return True
+
+        # Check if rate changed significantly
+        return self._rate_changed_significantly(current_rate, prev_alerted)
+
+    def _rate_flipped_sign(self, current_rate: float, prev_rate: float) -> bool:
+        """Check if rate changed from positive to negative or vice versa"""
+        return (current_rate > 0) != (prev_rate > 0)
+
+    def _rate_changed_significantly(self, current_rate: float, prev_rate: float, threshold: float = 0.5) -> bool:
+        """Check if rate changed by more than threshold (default 50%)"""
+        if prev_rate == 0:
+            return True
+
+        rate_change = abs(current_rate - prev_rate) / abs(prev_rate)
+        return rate_change >= threshold
+
+    def _record_alert(self, symbol: str, rate: float, alerts: List[Dict], alert: Dict):
+        """Record that we've alerted for this symbol and rate"""
+        alerts.append(alert)
+        self.alert_count_this_hour += 1
+        self.alerted_predicted_rates[symbol] = rate
+        logger.info(f"{symbol}: Extreme PREDICTED funding rate: {rate:.6f}")
     
     def _create_predicted_alert(self, symbol: str, rate: float, ticker_data: Dict) -> Dict:
         """Create an alert for a predicted (upcoming) funding rate"""
