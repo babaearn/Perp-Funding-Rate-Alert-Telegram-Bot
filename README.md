@@ -5,7 +5,7 @@ Real-time funding rate alerts for perpetual futures. A **Mudrex** service.
 ## Features
 
 - Settlement-based alerts (no spam from live rate fluctuations)
-- Extreme rate detection (alerts when rates ≥ ±0.5%)
+- Extreme rate detection (alerts when rates ≥ ±1%)
 - Bias flip detection (alerts when funding flips positive ↔ negative)
 - Multi-interval support (1h, 2h, 4h, 8h)
 - Auto-refresh symbol list every 24 hours
@@ -15,7 +15,7 @@ Real-time funding rate alerts for perpetual futures. A **Mudrex** service.
 | Symbol | Alert Trigger |
 |--------|---------------|
 | BTCUSDT | All rate changes, flips, extreme rates |
-| Others | Extreme rates only (≥0.5%) |
+| Others | Extreme rates only (≥1%) |
 
 ## Setup
 
@@ -75,7 +75,7 @@ python3 funding_rate_bot.py
 🔴 DOGEUSDT
 
 • Bias: Negative (Shorts Pay Longs)
-• Rate: -0.4000% → -0.5500%
+• Rate: -0.4000% → -1.1000%
 • Interval: 8h
 • Settled: 04 Dec 2025, 01:30 AM IST
 ```
