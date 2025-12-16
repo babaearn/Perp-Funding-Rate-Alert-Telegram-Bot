@@ -58,8 +58,8 @@ class FundingRateConfig:
     MIN_RATE_CHANGE_THRESHOLD = 0.0001
     
     # Alert on extreme funding rates (above this absolute value)
-    # 0.005 = 0.5% funding rate (considered extreme)
-    EXTREME_RATE_THRESHOLD = 0.005
+    # 0.01 = 1% funding rate (considered extreme)
+    EXTREME_RATE_THRESHOLD = 0.01
     
     # Alert on funding rate sign change (positive to negative or vice versa)
     ALERT_ON_SIGN_CHANGE = True
@@ -79,7 +79,7 @@ class FundingRateConfig:
     ALERT_ON_PREDICTED_RATES = True
     
     # Only send predicted alerts for extreme rates (prevent spam)
-    PREDICTED_RATE_THRESHOLD = 0.005  # 0.5% - same as extreme threshold
+    PREDICTED_RATE_THRESHOLD = 0.01  # 1% - same as extreme threshold
     
     # ==========================================================================
     # DATA STORAGE
