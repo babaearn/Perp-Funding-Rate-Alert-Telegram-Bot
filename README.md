@@ -9,6 +9,7 @@ Real-time funding rate alerts for perpetual futures. A **Mudrex** service.
 - Bias flip detection (alerts when funding flips positive ↔ negative)
 - Multi-interval support (1h, 2h, 4h, 8h)
 - Auto-refresh symbol list every 24 hours
+- **Historical funding rate lookup** by date
 
 ## Alert Rules
 
@@ -41,8 +42,29 @@ python3 funding_rate_bot.py
 
 | Command | Description |
 |---------|-------------|
-| `/funding` | Show funding rates summary |
+| `/funding` | Show top 10 extreme funding rates |
+| `/funding <SYMBOL>` | Show current funding rate for a symbol (e.g., `/funding BTC` or `/funding BTCUSDT`) |
+| `/funding <SYMBOL> <DDMMYY>` | Show historical funding rates for a symbol on a specific date (e.g., `/funding BTC 010126` for 01 Jan 2026) |
 | `/status` | Show bot status |
+
+## Historical Funding Rate
+
+You can query historical funding rates for any symbol on a specific date using the DDMMYY format:
+
+**Example:** `/funding BTCUSDT 251225` - Shows all funding settlements for BTCUSDT on 25 Dec 2025
+
+**Output:**
+```
+📊 BTCUSDT Historical Funding Rates
+📅 Date: 25 Dec 2025
+
+🟢 05:30 AM IST: +0.0100%
+🟢 01:30 PM IST: +0.0085%
+🔴 09:30 PM IST: -0.0050%
+
+🟢 Daily Total: +0.0135%
+📈 Settlements: 3
+```
 
 ## Alert Examples
 
@@ -85,6 +107,7 @@ python3 funding_rate_bot.py
 ```
 perp-funding-rate-bot/
 ├── funding_rate_bot.py
+├── command_handler.py   # Lightweight command handler
 ├── config.py
 ├── bybit_fetcher.py
 ├── funding_monitor.py
