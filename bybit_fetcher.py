@@ -1,7 +1,7 @@
 import logging
 import requests
 from typing import Dict, List, Optional, Tuple
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import time
 
 logger = logging.getLogger(__name__)
@@ -196,6 +196,71 @@ class BybitDataFetcher:
         except Exception as e:
             logger.error(f"Unexpected error fetching funding history: {e}")
             return []
+    
+    def get_funding_rate_history_by_date(self, symbol: str, date_str: str) -> Tuple[List[Dict], str]:
+        """
+        Get historical funding rates for a symbol on a specific date
+        
+        Args:
+            symbol: Symbol name (e.g., "BTCUSDT")
+            date_str: Date in DDMMYY format (e.g., "010126" for 01 Jan 2026)
+        
+        Returns:
+            Tuple of (List of funding rate records for that date, error message if any)
+        """
+        try:
+            # Parse DDMMYY format
+            day = int(date_str[0:2])
+            month = int(date_str[2:4])
+            year = int(date_str[4:6]) + 2000  # Convert YY to YYYY
+            
+            # Create start and end timestamps for the date (UTC)
+            start_dt = datetime(year, month, day, 0, 0, 0, tzinfo=timezone.utc)
+            end_dt = start_dt + timedelta(days=1) - timedelta(milliseconds=1)
+            
+            start_time = int(start_dt.timestamp() * 1000)
+            end_time = int(end_dt.timestamp() * 1000)
+            
+            url = f"{self.base_url}/v5/market/funding/history"
+            params = {
+                "category": "linear",
+                "symbol": symbol,
+                "startTime": start_time,
+                "endTime": end_time,
+                "limit": 200
+            }
+            
+            response = self.session.get(url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("retCode") != 0:
+                error_msg = data.get('retMsg', 'Unknown error')
+                logger.error(f"Bybit API error for {symbol}: {error_msg}")
+                return [], error_msg
+            
+            records = []
+            for item in data.get("result", {}).get("list", []):
+                records.append({
+                    "symbol": item.get("symbol"),
+                    "fundingRate": float(item.get("fundingRate", 0)),
+                    "fundingRateTimestamp": int(item.get("fundingRateTimestamp", 0))
+                })
+            
+            # Sort by timestamp ascending (oldest first)
+            records.sort(key=lambda x: x["fundingRateTimestamp"])
+            
+            return records, ""
+            
+        except ValueError as e:
+            logger.error(f"Invalid date format: {date_str}")
+            return [], "Invalid date format. Use DDMMYY (e.g., 010126)"
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error fetching funding history for {symbol}: {e}")
+            return [], str(e)
+        except Exception as e:
+            logger.error(f"Unexpected error fetching funding history: {e}")
+            return [], str(e)
     
     def get_current_funding_rates(self, symbols: List[str]) -> Dict[str, float]:
         """
