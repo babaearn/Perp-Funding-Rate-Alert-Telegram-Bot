@@ -4,6 +4,11 @@ Lightweight Command Handler for Funding Rate Bot
 
 This runs as a separate process and handles Telegram commands instantly.
 It does NOT do heavy monitoring - just responds to /funding and /status commands.
+
+Commands:
+- /funding - Show top 10 extreme funding rates
+- /funding <SYMBOL> - Show current funding rate for a symbol
+- /funding <SYMBOL> <DDMMYY> - Show historical funding rates for a symbol on a specific date
 """
 
 import asyncio
@@ -135,7 +140,16 @@ For support, contact @DecentralizedJM"""
                 symbol = parts[1].upper()
                 if not symbol.endswith("USDT"):
                     symbol += "USDT"
-                await self.send_symbol_funding(chat_id, symbol)
+                
+                # Check if date is provided (DDMMYY format)
+                if len(parts) > 2:
+                    date_str = parts[2]
+                    if len(date_str) == 6 and date_str.isdigit():
+                        await self.send_historical_funding(chat_id, symbol, date_str)
+                    else:
+                        await self.send_message(chat_id, "❌ Invalid date format. Use DDMMYY (e.g., 010126 for 01 Jan 2026)")
+                else:
+                    await self.send_symbol_funding(chat_id, symbol)
             else:
                 await self.send_top_funding(chat_id)
         
@@ -224,9 +238,108 @@ For support, contact @DecentralizedJM"""
 
 • Bias: {bias}
 • Live Rate: <b>{rate_str}</b>
-• Next Settlement: {next_time_str}"""
+• Next Settlement: {next_time_str}
+
+<i>💡 Tip: Use /funding {symbol.replace('USDT', '')} DDMMYY for historical rates</i>"""
         
         await self.send_message(chat_id, message)
+    
+    async def send_historical_funding(self, chat_id: int, symbol: str, date_str: str):
+        """Send historical funding rates for a specific symbol and date"""
+        try:
+            # Parse and validate date (DDMMYY format)
+            day = int(date_str[0:2])
+            month = int(date_str[2:4])
+            year = int(date_str[4:6]) + 2000  # Convert YY to YYYY
+            
+            target_date = datetime(year, month, day, tzinfo=timezone.utc)
+            date_display = target_date.strftime('%d %b %Y')
+            
+            # Check if date is in the future
+            if target_date.date() > datetime.now(timezone.utc).date():
+                await self.send_message(chat_id, f"❌ Cannot fetch historical data for future date: {date_display}")
+                return
+            
+        except (ValueError, IndexError):
+            await self.send_message(chat_id, "❌ Invalid date format. Use DDMMYY (e.g., 010126 for 01 Jan 2026)")
+            return
+        
+        try:
+            # Calculate start and end timestamps for the date (UTC)
+            start_dt = datetime(year, month, day, 0, 0, 0, tzinfo=timezone.utc)
+            end_dt = start_dt + timedelta(days=1) - timedelta(milliseconds=1)
+            
+            start_time = int(start_dt.timestamp() * 1000)
+            end_time = int(end_dt.timestamp() * 1000)
+            
+            # Fetch historical funding rates from Bybit API
+            url = f"{BYBIT_BASE_URL}/v5/market/funding/history"
+            params = {
+                "category": "linear",
+                "symbol": symbol,
+                "startTime": start_time,
+                "endTime": end_time,
+                "limit": 200
+            }
+            
+            logger.info(f"Fetching historical funding for {symbol} on {date_display}")
+            
+            async with self.session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    await self.send_message(chat_id, f"❌ Failed to fetch historical data for <b>{symbol}</b>")
+                    return
+                
+                data = await resp.json()
+                
+                if data.get("retCode") != 0:
+                    error_msg = data.get('retMsg', 'Unknown error')
+                    logger.error(f"Bybit API error: {error_msg}")
+                    await self.send_message(chat_id, f"❌ API Error: {error_msg}")
+                    return
+                
+                records = data.get("result", {}).get("list", [])
+                
+                if not records:
+                    await self.send_message(chat_id, f"❌ No funding rate data found for <b>{symbol}</b> on {date_display}")
+                    return
+                
+                # Sort by timestamp ascending (oldest first)
+                records.sort(key=lambda x: int(x.get("fundingRateTimestamp", 0)))
+                
+                # Build message
+                lines = [f"📊 <b>{symbol}</b> Historical Funding Rates", f"📅 Date: {date_display}\n"]
+                
+                total_rate = 0
+                for record in records:
+                    rate = float(record.get("fundingRate", 0))
+                    rate_pct = rate * 100
+                    total_rate += rate
+                    timestamp = int(record.get("fundingRateTimestamp", 0))
+                    
+                    # Format time in IST
+                    dt = datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+                    dt_ist = dt + timedelta(hours=5, minutes=30)
+                    time_str = dt_ist.strftime('%I:%M %p IST')
+                    
+                    # Emoji based on rate
+                    emoji = "🟢" if rate >= 0 else "🔴"
+                    rate_str = f"+{rate_pct:.4f}%" if rate >= 0 else f"{rate_pct:.4f}%"
+                    
+                    lines.append(f"{emoji} {time_str}: <b>{rate_str}</b>")
+                
+                # Add daily total
+                total_pct = total_rate * 100
+                total_emoji = "🟢" if total_rate >= 0 else "🔴"
+                total_str = f"+{total_pct:.4f}%" if total_rate >= 0 else f"{total_pct:.4f}%"
+                lines.append(f"\n{total_emoji} <b>Daily Total: {total_str}</b>")
+                lines.append(f"📈 Settlements: {len(records)}")
+                
+                await self.send_message(chat_id, "\n".join(lines))
+                logger.info(f"Sent historical funding for {symbol} on {date_display}: {len(records)} records")
+                
+        except Exception as e:
+            logger.error(f"Error fetching historical funding for {symbol}: {e}")
+            await self.send_message(chat_id, f"❌ Error fetching historical data for {symbol}")
     
     async def send_top_funding(self, chat_id: int):
         """Send top 10 most extreme funding rates"""
@@ -264,6 +377,7 @@ For support, contact @DecentralizedJM"""
             lines.append(f"{emoji} <b>{symbol}</b>: {rate_pct:+.4f}%")
         
         lines.append("\n<i>🔴 Longs pay | 🟢 Shorts pay</i>")
+        lines.append("<i>💡 Use /funding SYMBOL DDMMYY for historical rates</i>")
         
         await self.send_message(chat_id, "\n".join(lines))
     
@@ -279,6 +393,11 @@ For support, contact @DecentralizedJM"""
 • Status: Running
 • Symbols Cached: {len(self.symbols_cache)}
 • Cache Updated: {cache_age or 'Never'}
+
+<b>Commands:</b>
+• /funding - Top 10 extreme rates
+• /funding SYMBOL - Current rate for symbol
+• /funding SYMBOL DDMMYY - Historical rates
 
 <i>A Mudrex service</i>"""
         
