@@ -1,7 +1,7 @@
 #!/bin/bash
 # Start both command handler and alert monitor
 
-cd /Users/jm/staging/perp-funding-rate-bot
+cd "$(dirname "$0")"
 
 # Kill any existing processes
 pkill -9 -f "command_handler.py" 2>/dev/null

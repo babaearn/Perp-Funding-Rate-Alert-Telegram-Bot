@@ -1,5 +1,6 @@
 import logging
 import requests
+import html
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -93,7 +94,7 @@ class TelegramClient:
     
     def _format_funding_alert(self, alert: dict) -> str:
         """Format funding rate alert as Telegram message"""
-        symbol = alert.get("symbol", "UNKNOWN")
+        symbol = html.escape(alert.get("symbol", "UNKNOWN"))
         rate = alert.get("fundingRate", 0)
         prev_rate = alert.get("prevFundingRate")
         alert_type = alert.get("alertType", "change")
@@ -221,11 +222,12 @@ Monitoring <b>{len(symbols)}</b> symbols for funding rate changes.
     
     async def send_startup_message_old(self, symbols: list) -> bool:
         """Send bot startup notification"""
+        safe_symbols = [html.escape(s) for s in symbols]
         message = f"""
 🚀 <b>Mudrex Funding Rate Bot Started</b>
 
 Monitoring {len(symbols)} symbols for funding rate changes:
-{', '.join(symbols[:5])}{'...' if len(symbols) > 5 else ''}
+{', '.join(safe_symbols[:5])}{'...' if len(symbols) > 5 else ''}
 
 Alerts will be sent when:
 • Funding rate changes significantly
@@ -251,6 +253,7 @@ Alerts will be sent when:
         lines = ["📊 <b>Current Funding Rates (Top 10)</b>\n"]
         
         for symbol, data in sorted_rates[:10]:
+            safe_symbol = html.escape(symbol)
             rate = data.get("fundingRate", 0)
             rate_pct = rate * 100
             
@@ -265,7 +268,7 @@ Alerts will be sent when:
             else:
                 emoji = "⚪"
             
-            lines.append(f"{emoji} <b>{symbol}</b>: {rate_pct:+.4f}%")
+            lines.append(f"{emoji} <b>{safe_symbol}</b>: {rate_pct:+.4f}%")
         
         lines.append("\n<i>🔴 Longs pay | 🟢 Shorts pay</i>")
         

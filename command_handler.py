@@ -18,6 +18,7 @@ import logging
 import os
 import sys
 import signal
+import html
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
@@ -218,8 +219,11 @@ For support, contact @DecentralizedJM"""
         """Send funding rate for a specific symbol"""
         data = await self.get_symbol_data(symbol)
         
+        # Escape symbol for HTML safety
+        safe_symbol = html.escape(symbol)
+        
         if not data:
-            await self.send_message(chat_id, f"❌ Symbol <b>{symbol}</b> not found on Mudrex.")
+            await self.send_message(chat_id, f"❌ Symbol <b>{safe_symbol}</b> not found on Mudrex.")
             return
         
         rate = data["fundingRate"]
@@ -239,18 +243,21 @@ For support, contact @DecentralizedJM"""
         else:
             next_time_str = "Unknown"
         
-        message = f"""{color} <b>{symbol}</b>
+        message = f"""{color} <b>{safe_symbol}</b>
 
 • Bias: {bias}
 • Live Rate: <b>{rate_str}</b>
 • Next Settlement: {next_time_str}
 
-<i>💡 Tip: Use /funding {symbol.replace('USDT', '')} DDMMYY for historical rates</i>"""
+<i>💡 Tip: Use /funding {safe_symbol.replace('USDT', '')} DDMMYY for historical rates</i>"""
         
         await self.send_message(chat_id, message)
     
     async def send_historical_funding(self, chat_id: int, symbol: str, date_str: str, time_str: str = None):
         """Send historical funding rates for a specific symbol and date (optionally filtered by time)"""
+        # Escape symbol for HTML safety
+        safe_symbol = html.escape(symbol)
+
         try:
             # Parse and validate date (DDMMYY format)
             day = int(date_str[0:2])
@@ -315,7 +322,7 @@ For support, contact @DecentralizedJM"""
             
             async with self.session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status != 200:
-                    await self.send_message(chat_id, f"❌ Failed to fetch historical data for <b>{symbol}</b>")
+                    await self.send_message(chat_id, f"❌ Failed to fetch historical data for <b>{safe_symbol}</b>")
                     return
                 
                 data = await resp.json()
@@ -329,7 +336,7 @@ For support, contact @DecentralizedJM"""
                 records = data.get("result", {}).get("list", [])
                 
                 if not records:
-                    await self.send_message(chat_id, f"❌ No funding rate data found for <b>{symbol}</b> on {date_display}")
+                    await self.send_message(chat_id, f"❌ No funding rate data found for <b>{safe_symbol}</b> on {date_display}")
                     return
                 
                 # Sort by timestamp ascending (oldest first)
@@ -354,7 +361,7 @@ For support, contact @DecentralizedJM"""
                                 break
                     
                     if not matching_record:
-                        await self.send_message(chat_id, f"❌ No funding rate found for <b>{symbol}</b> at {time_str} on {date_display}")
+                        await self.send_message(chat_id, f"❌ No funding rate found for <b>{safe_symbol}</b> at {time_str} on {date_display}")
                         return
                     
                     # Format single record response
@@ -371,7 +378,7 @@ For support, contact @DecentralizedJM"""
                     rate_str = f"+{rate_pct:.4f}%" if rate >= 0 else f"{rate_pct:.4f}%"
                     bias = "Positive (Longs Pay Shorts)" if rate >= 0 else "Negative (Shorts Pay Longs)"
                     
-                    message = f"""📊 <b>{symbol}</b> Funding Rate
+                    message = f"""📊 <b>{safe_symbol}</b> Funding Rate
 
 🕐 Requested: {date_display} {time_str}
 ⏰ Settlement: {settlement_time_str}
@@ -386,7 +393,7 @@ For support, contact @DecentralizedJM"""
                     
                 else:
                     # Build full day message
-                    lines = [f"📊 <b>{symbol}</b> Historical Funding Rates", f"📅 Date: {date_display}\n"]
+                    lines = [f"📊 <b>{safe_symbol}</b> Historical Funding Rates", f"📅 Date: {date_display}\n"]
                     
                     total_rate = 0
                     for record in records:

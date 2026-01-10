@@ -19,5 +19,9 @@ COPY . .
 # Create directories for data and logs
 RUN mkdir -p data logs
 
+# Create a non-root user and set permissions
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Run the bot
 CMD ["python", "funding_rate_bot.py"]
